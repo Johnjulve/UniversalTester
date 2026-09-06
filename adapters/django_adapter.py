@@ -10,6 +10,7 @@ from typing import Dict, Any
 
 from adapters.base import BaseAdapter
 from core.ui import Colors, print_section_header, print_status, print_divider
+from core.reporter import AnalyticalTestReporter
 
 
 class DjangoAdapter(BaseAdapter):
@@ -73,11 +74,38 @@ class DjangoAdapter(BaseAdapter):
             print(f"\n{Colors.BRIGHT_RED}✘ Process execution error: {e}{Colors.RESET}")
             return False
 
+    def _run_analytical_test(self, cmd: list, cwd: str, label: str) -> bool:
+        """Run a test subprocess with real-time analytical parsing and structured dashboard."""
+        print(f"\n{Colors.DIM}Executing: {' '.join(cmd)}{Colors.RESET}\n")
+        reporter = AnalyticalTestReporter(suite_name=label)
+        
+        try:
+            process = subprocess.Popen(
+                cmd,
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                bufsize=1
+            )
+            
+            for line in iter(process.stdout.readline, ''):
+                reporter.feed_line(line)
+                
+            process.wait()
+            passed = reporter.render_dashboard()
+            return passed and (process.returncode == 0)
+        except Exception as e:
+            print(f"\n{Colors.BRIGHT_RED}✘ Test execution error: {e}{Colors.RESET}")
+            return False
+
     def run_components_test(self) -> bool:
-        """Run Tier 1 Django unit and component tests."""
+        """Run Tier 1 Django unit and component tests with analytical dashboard."""
         print_section_header(f"Running Component Unit Tests for {self.name}")
-        cmd = [self.python_bin, 'manage.py', 'test', 'tests']
-        return self._run_process(cmd, cwd=self.backend_dir, label="Component Unit Tests")
+        cmd = [self.python_bin, 'manage.py', 'test', 'tests', '-v', '2']
+        return self._run_analytical_test(cmd, cwd=self.backend_dir, label=f"{self.name} Components")
 
     def run_simulation_test(self, concurrent_users: int) -> bool:
         """Run analytical concurrent load simulation."""

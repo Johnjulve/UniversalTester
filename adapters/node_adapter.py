@@ -8,6 +8,7 @@ from typing import Dict, Any
 
 from adapters.base import BaseAdapter
 from core.ui import Colors, print_section_header, print_status
+from core.reporter import AnalyticalTestReporter
 
 
 class NodeAdapter(BaseAdapter):
@@ -24,10 +25,24 @@ class NodeAdapter(BaseAdapter):
 
     def run_components_test(self) -> bool:
         print_section_header(f"Running Frontend Unit Tests (npm test) for {self.name}")
-        cmd = ['npm', 'test']
+        cmd = ['npm', 'test', '--', '--watchAll=false']
+        reporter = AnalyticalTestReporter(suite_name=f"{self.name} Frontend Tests")
         try:
-            res = subprocess.run(cmd, cwd=self.frontend_dir, shell=True)
-            return res.returncode == 0
+            process = subprocess.Popen(
+                cmd,
+                cwd=self.frontend_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                shell=True
+            )
+            for line in iter(process.stdout.readline, ''):
+                reporter.feed_line(line)
+            process.wait()
+            passed = reporter.render_dashboard()
+            return passed and (process.returncode == 0)
         except Exception as e:
             print(f"{Colors.BRIGHT_RED}Error running Node test: {e}{Colors.RESET}")
             return False
