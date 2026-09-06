@@ -44,3 +44,8 @@ coverage/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Local planning & notes
+Plan.md
+*.plan.md
+
