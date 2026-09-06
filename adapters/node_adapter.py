@@ -62,4 +62,11 @@ class NodeAdapter(BaseAdapter):
         return True
 
     def run_algorithms_test(self) -> bool:
-        return True
+        """Run the universal CS algorithm benchmarks."""
+        algo_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Performance', 'test_algorithms.py'))
+        try:
+            res = subprocess.run([sys.executable, algo_script])
+            return res.returncode == 0
+        except Exception as e:
+            print(f"{Colors.BRIGHT_RED}Error running algorithm benchmarks: {e}{Colors.RESET}")
+            return False
