@@ -129,10 +129,10 @@ class DjangoAdapter(BaseAdapter):
         return self._run_process(cmd, cwd=self.project_path, label="Algorithm Benchmarks")
 
     def run_benchmarks(self) -> bool:
-        """Run live API latency and database query smoke tests."""
-        print_section_header(f"Running API Latency & Query Benchmarks for {self.name}")
-        perf_script = os.path.join(self.performance_dir, 'quick_performance_test.py')
-        cmd = [self.python_bin, perf_script]
+        """Run computational stress and throughput benchmarks."""
+        print_section_header(f"Running Performance Benchmarks for {self.name}")
+        algo_script = os.path.join(self.performance_dir, 'test_algorithms.py')
+        cmd = [self.python_bin, algo_script]
         return self._run_process(cmd, cwd=self.project_path, label="Performance Benchmark")
 
     def run_overall_test(self) -> bool:
