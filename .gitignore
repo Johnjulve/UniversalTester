@@ -45,7 +45,15 @@ coverage/
 .coverage
 htmlcov/
 
+# Local configuration & paths
+tester_config.json
+
 # Local planning & notes
 Plan.md
 *.plan.md
+docs/
+.agents/
+
+
+
 
