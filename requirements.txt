@@ -1,0 +1,8 @@
+# UniversalTester Dependencies
+# Core CLI has zero external dependencies and runs on Python 3.8+ Standard Library.
+
+# Performance, Load Testing & Benchmarks (Optional / Recommended)
+requests>=2.28.0
+locust>=2.15.0
+pytest>=7.0.0
+colorama>=0.4.6

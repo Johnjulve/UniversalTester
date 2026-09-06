@@ -1,4 +1,4 @@
-﻿# ⚡ UniversalTester: Multi-Framework Test & Simulation Engine
+# ⚡ UniversalTester: Multi-Framework Test & Simulation Engine
 
 **UniversalTester** is an independent, framework-agnostic terminal CLI application designed to orchestrate tests, simulate concurrent user loads, and run performance benchmarks across multiple software projects and technology stacks.
 
@@ -16,20 +16,33 @@
 
 ## 🚀 Quick Start
 
-### 1. Launch Interactive CLI
-Run from this directory:
+### 1. Installation & Environment Setup
+Clone and install optional dependencies (the core CLI requires only standard library Python 3.8+):
 ```bash
+# Clone the repository
+git clone https://github.com/Johnjulve/UniversalTester.git
+cd UniversalTester
+
+# (Optional) Create a virtual environment and install load-testing tools
+python -m venv .venv
+.\.venv\Scripts\activate   # Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Launch Interactive CLI
+Run with one click or command:
+```bash
+# Windows PowerShell (automatically detects local .venv or system Python)
+.\run.ps1
+
 # Windows CMD
 run.cmd
-
-# Windows PowerShell
-.\run.ps1
 
 # Direct Python execution
 python tester.py
 ```
 
-### 2. The Interactive Flow
+### 3. The Interactive Flow
 ```text
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                 ⚡ UNIVERSAL TEST & SIMULATION ENGINE                         ║
@@ -37,8 +50,8 @@ python tester.py
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 Choose project for testing:
-  [1] E_Botar
-  [2] E_Botar lite
+  [1] Django Backend Service
+  [2] React Frontend Application
   [3] Custom Project Path...
   [0] Exit
 ```
@@ -50,16 +63,19 @@ Choose project for testing:
 ```text
 UniversalTester/
 ├── tester.py                     <-- Main terminal interactive CLI entrypoint
-├── tester_config.json            <-- Multi-project configuration & paths
-├── run.cmd / run.ps1             <-- One-click Windows execution launchers
+├── tester_config.json            <-- Active multi-project configuration & paths
+├── tester_config.example.json    <-- Example configuration template
+├── requirements.txt              <-- Optional test & benchmark dependencies
+├── run.cmd / run.ps1             <-- Portable Windows execution launchers
 ├── README.md                     <-- Documentation and usage guide
 ├── ARCHITECTURE.md               <-- Guide to creating new adapters & adding frameworks
+├── LICENSE                       <-- MIT License
 ├── core/
 │   └── ui.py                     <-- Terminal formatting, ANSI colors & screen clearing
 ├── adapters/
 │   ├── base.py                   <-- BaseAdapter interface (all frameworks inherit this)
 │   ├── django_adapter.py         <-- Django & DRF test execution & concurrency simulations
-│   ├── node_adapter.py           <-- Node.js / React / Vite adapter
+│   ├── node_adapter.py           <-- Node.js / React / Vite / Next.js adapter
 │   ├── fastapi_adapter.py        <-- FastAPI / Pytest adapter
 │   └── go_adapter.py             <-- Go (go test) adapter
 └── Performance/
@@ -72,30 +88,32 @@ UniversalTester/
 
 ---
 
-## ⚙️ Adding a New Project
+## ⚙️ Adding & Configuring Projects
 
-To add a new project to the menu, open [`tester_config.json`](tester_config.json) and add an entry under `"projects"`:
+Copy `tester_config.example.json` to `tester_config.json` (or edit `tester_config.json` directly):
 
 ```json
 {
+  "version": "1.0.0",
+  "app_name": "Universal Tester",
   "projects": {
     "1": {
-      "id": "e_botar",
-      "name": "E_Botar",
+      "id": "my_django_service",
+      "name": "Django Backend API",
       "type": "django",
-      "path": "d:/Downloads_D/Project Thesis/E_Botar",
-      "backend_dir": "d:/Downloads_D/Project Thesis/E_Botar/backend",
-      "python_env": "d:/Downloads_D/Project Thesis/E_Botar/env/Scripts/python.exe"
+      "path": "d:/Projects/MyBackend",
+      "backend_dir": "d:/Projects/MyBackend/backend",
+      "python_env": ""
     },
-    "3": {
-      "id": "my_web_app",
-      "name": "My Next.js App",
-      "type": "node",
-      "path": "d:/Projects/MyWebApp",
-      "frontend_dir": "d:/Projects/MyWebApp/frontend"
+    "2": {
+      "id": "my_react_app",
+      "name": "React Web Client",
+      "type": "react",
+      "path": "d:/Projects/MyFrontend",
+      "frontend_dir": "d:/Projects/MyFrontend"
     }
   }
 }
 ```
 
-The next time you run `tester.py`, your new project will appear in the main menu automatically!
+> **Note**: For Django projects, if `"python_env"` is left empty or omitted, `UniversalTester` will automatically locate your virtual environment (`.venv` or `env`) inside the project!

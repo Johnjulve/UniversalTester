@@ -2,14 +2,9 @@
 Adapter registry and factory for multi-framework support.
 """
 from typing import Dict, Any
-try:
-    from Testing.adapters.base import BaseAdapter
-    from Testing.adapters.django_adapter import DjangoAdapter
-    from Testing.adapters.node_adapter import NodeAdapter
-except ImportError:
-    from adapters.base import BaseAdapter
-    from adapters.django_adapter import DjangoAdapter
-    from adapters.node_adapter import NodeAdapter
+from adapters.base import BaseAdapter
+from adapters.django_adapter import DjangoAdapter
+from adapters.node_adapter import NodeAdapter
 
 
 def get_adapter(project_config: Dict[str, Any]) -> BaseAdapter:

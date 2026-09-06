@@ -1,17 +1,13 @@
 """
-Node.js / Frontend framework adapter stub.
-Prepares the Universal Tester for future JavaScript/TypeScript projects (Jest, Vitest, Cypress).
+Node.js / React / Frontend framework adapter.
+Executes JavaScript/TypeScript test suites (Jest, Vitest, npm test), builds, and benchmarks.
 """
 import os
 import subprocess
 from typing import Dict, Any
 
-try:
-    from Testing.adapters.base import BaseAdapter
-    from Testing.core.ui import Colors, print_section_header
-except ImportError:
-    from adapters.base import BaseAdapter
-    from core.ui import Colors, print_section_header
+from adapters.base import BaseAdapter
+from core.ui import Colors, print_section_header, print_status
 
 
 class NodeAdapter(BaseAdapter):
@@ -19,7 +15,12 @@ class NodeAdapter(BaseAdapter):
 
     def __init__(self, project_config: Dict[str, Any]):
         super().__init__(project_config)
-        self.frontend_dir = project_config.get('frontend_dir', os.path.join(self.project_path, 'frontend'))
+        # Check if project has a frontend subdirectory or is the frontend project itself
+        frontend_sub = os.path.join(self.project_path, 'frontend')
+        if os.path.exists(frontend_sub):
+            self.frontend_dir = project_config.get('frontend_dir', frontend_sub)
+        else:
+            self.frontend_dir = project_config.get('frontend_dir', self.project_path)
 
     def run_components_test(self) -> bool:
         print_section_header(f"Running Frontend Unit Tests (npm test) for {self.name}")

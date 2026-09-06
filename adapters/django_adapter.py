@@ -1,5 +1,5 @@
 """
-Django & E-Botar framework adapter.
+Django framework adapter.
 Executes Django manage.py tests, analytical load simulations, and algorithm benchmarks.
 """
 import os
@@ -8,12 +8,8 @@ import time
 import subprocess
 from typing import Dict, Any
 
-try:
-    from Testing.adapters.base import BaseAdapter
-    from Testing.core.ui import Colors, print_section_header, print_status, print_divider
-except ImportError:
-    from adapters.base import BaseAdapter
-    from core.ui import Colors, print_section_header, print_status, print_divider
+from adapters.base import BaseAdapter
+from core.ui import Colors, print_section_header, print_status, print_divider
 
 
 class DjangoAdapter(BaseAdapter):
@@ -22,7 +18,21 @@ class DjangoAdapter(BaseAdapter):
     def __init__(self, project_config: Dict[str, Any]):
         super().__init__(project_config)
         self.backend_dir = project_config.get('backend_dir', os.path.join(self.project_path, 'backend'))
-        self.python_bin = project_config.get('python_env', sys.executable)
+        
+        # Dynamic python environment resolution: config -> project venv -> fallback to sys.executable
+        configured_py = project_config.get('python_env')
+        if configured_py and os.path.exists(configured_py):
+            self.python_bin = configured_py
+        else:
+            candidates = [
+                os.path.join(self.project_path, '.venv', 'Scripts', 'python.exe'),
+                os.path.join(self.project_path, 'env', 'Scripts', 'python.exe'),
+                os.path.join(self.project_path, '.venv', 'bin', 'python'),
+                os.path.join(self.project_path, 'env', 'bin', 'python'),
+                os.path.join(self.backend_dir, '.venv', 'Scripts', 'python.exe'),
+                os.path.join(self.backend_dir, 'env', 'Scripts', 'python.exe'),
+            ]
+            self.python_bin = next((p for p in candidates if os.path.exists(p)), sys.executable)
         
         # Testing directory path relative to this file
         self.testing_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))

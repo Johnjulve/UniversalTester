@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "app_name": "Universal Tester",
+  "projects": {
+    "1": {
+      "id": "sample_django_app",
+      "name": "Django Backend API",
+      "type": "django",
+      "path": "./sample_django",
+      "backend_dir": "./sample_django/backend",
+      "python_env": ""
+    },
+    "2": {
+      "id": "sample_react_app",
+      "name": "React Frontend UI",
+      "type": "react",
+      "path": "./sample_react",
+      "frontend_dir": "./sample_react"
+    }
+  },
+  "default_concurrency_options": [50, 100, 500, 1000, 2000],
+  "default_burst_seconds": 120,
+  "default_sample_users": 2000
+}

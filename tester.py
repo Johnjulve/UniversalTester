@@ -8,43 +8,29 @@ import sys
 import json
 from typing import Dict, Any, Optional
 
-# Ensure project root & Testing directory are in sys.path
+# Ensure UniversalTester directory is in sys.path
 _CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-_PROJECT_ROOT = os.path.abspath(os.path.join(_CURRENT_DIR, '..'))
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
 if _CURRENT_DIR not in sys.path:
     sys.path.insert(0, _CURRENT_DIR)
 
-try:
-    from Testing.core.ui import (
-        Colors,
-        clear_screen,
-        print_banner,
-        print_prompt_title,
-        print_menu_option,
-        get_user_input,
-        print_divider,
-        print_status
-    )
-    from Testing.adapters import get_adapter
-except ImportError:
-    from core.ui import (
-        Colors,
-        clear_screen,
-        print_banner,
-        print_prompt_title,
-        print_menu_option,
-        get_user_input,
-        print_divider,
-        print_status
-    )
-    from adapters import get_adapter
+from core.ui import (
+    Colors,
+    clear_screen,
+    print_banner,
+    print_prompt_title,
+    print_menu_option,
+    get_user_input,
+    print_divider,
+    print_status
+)
+from adapters import get_adapter
 
 
 def load_config() -> Dict[str, Any]:
-    """Load configuration from tester_config.json with fallback defaults."""
+    """Load configuration from tester_config.json with fallback to example config."""
     config_path = os.path.join(_CURRENT_DIR, 'tester_config.json')
+    example_path = os.path.join(_CURRENT_DIR, 'tester_config.example.json')
+    
     if os.path.exists(config_path):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
@@ -52,26 +38,17 @@ def load_config() -> Dict[str, Any]:
         except Exception:
             pass
             
-    # Default fallback
+    if os.path.exists(example_path):
+        try:
+            with open(example_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+
     return {
-        "projects": {
-            "1": {
-                "id": "e_botar",
-                "name": "E_Botar",
-                "type": "django",
-                "path": _PROJECT_ROOT,
-                "backend_dir": os.path.join(_PROJECT_ROOT, "backend"),
-                "python_env": os.path.join(_PROJECT_ROOT, "env", "Scripts", "python.exe")
-            },
-            "2": {
-                "id": "e_botar_lite",
-                "name": "E_Botar lite",
-                "type": "django",
-                "path": "d:/System Projects/E_Botar-Lite",
-                "backend_dir": "d:/System Projects/E_Botar-Lite/backend",
-                "python_env": os.path.join(_PROJECT_ROOT, "env", "Scripts", "python.exe")
-            }
-        },
+        "version": "1.0.0",
+        "app_name": "Universal Tester",
+        "projects": {},
         "default_concurrency_options": [50, 100, 500, 1000, 2000]
     }
 
@@ -93,7 +70,8 @@ def select_project(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         for key, proj in projects.items():
             print_menu_option(key, proj.get("name", f"Project {key}"))
             
-        print_menu_option("3", "Custom Project Path...")
+        custom_key = str(len(projects) + 1)
+        print_menu_option(custom_key, "Custom Project Path...")
         print_menu_option("0", "Exit", "Close testing application")
         print()
         
@@ -103,16 +81,28 @@ def select_project(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             return None
         elif choice in projects:
             return projects[choice]
-        elif choice == "3":
+        elif choice == custom_key:
             custom_path = get_user_input("Enter absolute project path: ").strip()
             if os.path.exists(custom_path):
+                # Auto-detect framework: Django vs React / Node.js
+                is_node = os.path.exists(os.path.join(custom_path, 'package.json'))
+                is_django = (
+                    os.path.exists(os.path.join(custom_path, 'manage.py')) or 
+                    os.path.exists(os.path.join(custom_path, 'backend', 'manage.py'))
+                )
+                proj_type = "react" if is_node and not is_django else "django"
+                
+                backend_candidate = os.path.join(custom_path, "backend")
+                frontend_candidate = os.path.join(custom_path, "frontend")
+                
                 return {
                     "id": "custom",
                     "name": os.path.basename(custom_path) or "Custom Project",
-                    "type": "django",
+                    "type": proj_type,
                     "path": custom_path,
-                    "backend_dir": os.path.join(custom_path, "backend"),
-                    "python_env": config.get("projects", {}).get("1", {}).get("python_env", sys.executable)
+                    "backend_dir": backend_candidate if os.path.exists(backend_candidate) else custom_path,
+                    "frontend_dir": frontend_candidate if os.path.exists(frontend_candidate) else custom_path,
+                    "python_env": sys.executable
                 }
             else:
                 error_msg = f"Path does not exist: {custom_path}"
