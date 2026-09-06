@@ -52,10 +52,15 @@ class NodeAdapter(BaseAdapter):
         return True
 
     def run_overall_test(self) -> bool:
-        print_section_header(f"Running Overall Suite (build + test) for {self.name}")
-        cmd = ['npm', 'run', 'build']
-        res = subprocess.run(cmd, cwd=self.frontend_dir, shell=True)
-        return res.returncode == 0
+        print_section_header(f"Running Full Overall Suite for {self.name}")
+        results = {}
+        print(f"\n{Colors.BOLD}{Colors.CYAN}[Phase 1/3] Executing Frontend Unit Tests...{Colors.RESET}")
+        results['components'] = self.run_components_test()
+        print(f"\n{Colors.BOLD}{Colors.CYAN}[Phase 2/3] Executing Algorithm Benchmarks...{Colors.RESET}")
+        results['algorithms'] = self.run_algorithms_test()
+        print(f"\n{Colors.BOLD}{Colors.CYAN}[Phase 3/3] Executing Health Check...{Colors.RESET}")
+        results['health'] = self.run_health_check()
+        return all(results.values())
 
     def run_benchmarks(self) -> bool:
         print(f"{Colors.YELLOW}Frontend benchmark: Lighthouse / bundle analyzer.{Colors.RESET}")

@@ -1,87 +1,96 @@
-﻿# 🏗️ UniversalTester Architecture & Extension Guide
+# 🏗️ UniversalTester (`testx`) Architecture & Extension Guide
 
-UniversalTester is built on the **Adapter Pattern**, ensuring that the CLI menu, terminal screen clearing, and result reporting logic remain completely separated from the framework-specific execution commands.
-
----
-
-## 🏛️ Core Design
-
-```
-[CLI Terminal Interface (tester.py)]
-         │
-         ▼
-  [Adapter Factory (adapters/__init__.py)]
-         │
- ┌───────┴────────┬────────────────┬────────────────┐
- ▼                ▼                ▼                ▼
-[DjangoAdapter]  [NodeAdapter]  [FastAPIAdapter] [GoAdapter]
- (manage.py test) (npm test)     (pytest)         (go test)
-```
+**UniversalTester** is architected around a **Two-Pillar Hybrid Design**:
+1. **Pillar 1: Native Test Engine**: Self-contained, framework-agnostic algorithms, mathematical stress models, system health diagnostics, and concurrency simulations operating purely on the Python Standard Library.
+2. **Pillar 2: Language & Framework Adapter System**: Modular delegates that discover, invoke, and normalize existing ecosystem test runners (`pytest`, `vitest`, `jest`, `junit`, `phpunit`) into a standardized result contract.
 
 ---
 
-## 📝 Creating a New Framework Adapter
+## 🏛️ Core Architecture Diagram
 
-To support a new technology stack (e.g. Go, Rust, Ruby on Rails, or Spring Boot):
+```text
+               [ CLI Interface (tester.py / testx) ]
+                                 │
+                                 ▼
+              [ Test Orchestrator & Menu Controller ]
+                                 │
+         ┌───────────────────────┴───────────────────────┐
+         ▼                                               ▼
+┌───────────────────────────────┐     ┌───────────────────────────────────┐
+│     Native Test Engine        │     │          Adapter System           │
+├───────────────────────────────┤     ├───────────────────────────────────┤
+│ • CS Stress Benchmarks        │     │ • adapters/base.py (Contract)     │
+│   (Quicksort, Binary Search,  │     │ • adapters/django_adapter.py      │
+│    SHA-256 throughput, JSON)  │     │ • adapters/node_adapter.py        │
+│ • Concurrency Traffic Model   │     │ • Future: Python, Java, PHP, Go   │
+│ • System & Host Health Check  │     │   (delegates to pytest, vitest)   │
+└───────────────────────────────┘     └───────────────────────────────────┘
+         │                                               │
+         └───────────────────────┬───────────────────────┘
+                                 ▼
+                 [ Analytical Test Reporter ]
+                     (core/reporter.py)
+                                 │
+                                 ▼
+               [ Module Tree & Metrics Dashboard ]
+```
 
-1. **Create a new file in `adapters/`** (e.g. `adapters/go_adapter.py`):
+---
+
+## 📋 The 5 Execution Modes
+
+UniversalTester organizes test workloads into five distinct suites:
+
+| Key | Suite Name | Type | Description |
+| :---: | :--- | :---: | :--- |
+| **`[1]`** | **Ecosystem Unit & Component Tests** | *Adapter* | Delegates to the target project's native runner (`pytest`, `manage.py test`, `npm test`). |
+| **`[2]`** | **Native Algorithm Benchmark** | *Native* | Pure CS CPU throughput stress test (Quicksort, Mergesort, Binary Search, SHA-256, JSON). |
+| **`[3]`** | **Native Concurrency Simulation** | *Native* | Analytical traffic model simulating 50 to 1,000 concurrent user requests under burst conditions. |
+| **`[4]`** | **Native System & Health Check** | *Native* | Inspects host OS, Python runtime, CPU cores, target directory access, and disk capacity. |
+| **`[5]`** | **Full Comprehensive Suite** | *Orchestrated* | Executes the complete test battery end-to-end and renders a unified summary. |
+
+---
+
+## 🔌 Creating a New Framework Adapter
+
+Any new language or framework adapter inherits from [`BaseAdapter`](adapters/base.py):
+
 ```python
 import subprocess
 from adapters.base import BaseAdapter
 from core.ui import print_section_header
 
 class GoAdapter(BaseAdapter):
+    """Adapter for Go projects using 'go test'."""
+
     def run_components_test(self) -> bool:
         print_section_header(f"Running Go Unit Tests for {self.name}")
         res = subprocess.run(["go", "test", "./..."], cwd=self.project_path)
         return res.returncode == 0
 
     def run_simulation_test(self, concurrent_users: int) -> bool:
-        # Load test logic or Locust runner
+        # Delegates to native simulation or custom k6/locust scenario
         return True
-
-    def run_overall_test(self) -> bool:
-        return self.run_components_test()
-
-    def run_benchmarks(self) -> bool:
-        res = subprocess.run(["go", "test", "-bench=.", "./..."], cwd=self.project_path)
-        return res.returncode == 0
 
     def run_algorithms_test(self) -> bool:
-        return True
+        # Executes native CS benchmarks
+        from Performance.test_algorithms import run_benchmarks
+        return run_benchmarks()
+
+    def run_overall_test(self) -> bool:
+        return self.run_components_test() and self.run_algorithms_test() and self.run_health_check()
 ```
 
-2. **Register the adapter in `adapters/__init__.py`**:
-```python
-from adapters.go_adapter import GoAdapter
-
-def get_adapter(project_config):
-    p_type = project_config.get('type', '').lower()
-    if p_type == 'go':
-        return GoAdapter(project_config)
-    # ... existing adapters ...
-```
-
-3. **Configure your project in `tester_config.json`**:
-```json
-{
-  "projects": {
-    "4": {
-      "id": "my_go_service",
-      "name": "Auth Microservice (Go)",
-      "type": "go",
-      "path": "d:/Projects/AuthService"
-    }
-  }
-}
-```
+### Steps to Register a New Adapter:
+1. Create `adapters/<name>_adapter.py` inheriting from `BaseAdapter`.
+2. Register the adapter in `adapters/__init__.py`.
+3. Add a project definition in `tester_config.json` (or use `tester_config.example.json` as a guide).
 
 ---
 
-## ⚡ Concurrency Simulator Math
+## 📊 Analytical Output & Reporting Architecture
 
-The analytical simulator (`Performance/simulate_concurrent_load.py`) uses an empirical queuing model:
-1. Calculates aggregate HTTP requests per user journey (e.g. login, ballot fetching, submission).
-2. Divides total requests by the burst time window (default: $120\text{s}$) to derive required arrival rate ($\text{req/s}$).
-3. Calculates network egress based on JSON payload measurements.
-4. Compares the arrival rate against server capacity profiles (e.g., single-process dev, 4-worker Gunicorn VPS, 8-worker clustered stack) to report server utilization percentage and user queuing delays.
+All test streams pass through [`core/reporter.py`](core/reporter.py):
+- **ANSI-Aware Padding**: Visible character length calculations strip escape bytes so table borders (`┌─┬─┐`, `│`, `└─┴─┘`) remain laser-aligned.
+- **Noise Suppression**: Suppresses internal database setup/teardown debug messages while surfacing real-time test passes (`✔`) and failures (`✘`).
+- **Health Grading**: Computes overall pass rates and awards grades ($A+$ for 100% contracts verified, $B$ for minor failures, $F$ for critical regressions).

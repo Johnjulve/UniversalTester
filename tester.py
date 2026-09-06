@@ -124,11 +124,11 @@ def select_test_type(project_name: str) -> Optional[str]:
         print(f"{Colors.DIM}Target Project: {Colors.BOLD}{Colors.BRIGHT_CYAN}{project_name}{Colors.RESET}\n")
         print_prompt_title("What type of Test/Simulation:")
         
-        print_menu_option("1", "Overall Test", "Full suite: Components + Algorithms + Simulation")
-        print_menu_option("2", "Simulation test", "Analytical concurrent voter load")
-        print_menu_option("3", "Components Test", "Fast Tier 1 unit & API tests")
-        print_menu_option("4", "Performance Benchmark", "API latency & database query test")
-        print_menu_option("5", "Algorithm Benchmarks", "Sorting, Searching, Cryptography & Aggregations")
+        print_menu_option("1", "Ecosystem Unit & Component Tests", "Delegates to project runner (pytest / vitest / jest)")
+        print_menu_option("2", "Native Algorithm Benchmark", "Pure CS stress test (Quicksort, Binary Search, SHA-256)")
+        print_menu_option("3", "Native Concurrency Simulation", "Analytical peak traffic & capacity model")
+        print_menu_option("4", "Native System & Health Check", "Host CPU, memory pressure, runtime environment")
+        print_menu_option("5", "Full Comprehensive Suite", "Complete run: Unit Tests + Algorithms + Simulation")
         print_menu_option("0", "Back to Project Selection")
         print()
         
@@ -151,12 +151,12 @@ def select_concurrency() -> Optional[int]:
             print(f"{Colors.BRIGHT_RED}⚠️  {error_msg}{Colors.RESET}\n")
             error_msg = ""
             
-        print_prompt_title("How much users would you simulate:")
+        print_prompt_title("Select concurrent user volume to simulate:")
         
-        print_menu_option("1", "50", "Light traffic (2.5% of sample)")
-        print_menu_option("2", "100", "Moderate peak (5% of sample)")
-        print_menu_option("3", "500", "High rush hour (25% of sample)")
-        print_menu_option("4", "1000", "Campus-wide surge (50% of sample)")
+        print_menu_option("1", "50", "Light load (50 concurrent users/reqs)")
+        print_menu_option("2", "100", "Moderate load (100 concurrent users/reqs)")
+        print_menu_option("3", "500", "High traffic rush (500 concurrent users/reqs)")
+        print_menu_option("4", "1000", "Surge capacity peak (1,000 concurrent users/reqs)")
         print_menu_option("5", "Custom count...")
         print_menu_option("0", "Back to Test Selection")
         print()
@@ -209,24 +209,24 @@ def main():
             clear_screen()
             
             if test_type == "1":
-                # Overall Test
-                adapter.run_overall_test()
+                # Ecosystem Unit & Component Tests
+                adapter.run_components_test()
             elif test_type == "2":
-                # Simulation Test
+                # Native Algorithm Benchmark
+                adapter.run_algorithms_test()
+            elif test_type == "3":
+                # Native Concurrency Simulation
                 users = select_concurrency()
                 if users is None:
                     continue  # Back to test selection
                 clear_screen()
                 adapter.run_simulation_test(users)
-            elif test_type == "3":
-                # Components Test
-                adapter.run_components_test()
             elif test_type == "4":
-                # Performance Benchmark
-                adapter.run_benchmarks()
+                # Native System & Health Check
+                adapter.run_health_check()
             elif test_type == "5":
-                # Algorithm Benchmarks
-                adapter.run_algorithms_test()
+                # Full Comprehensive Suite
+                adapter.run_overall_test()
                 
             print_divider()
             again = get_user_input("\nPress Enter to return to menu (or 'q' to quit): ").strip().lower()

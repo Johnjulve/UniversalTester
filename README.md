@@ -50,10 +50,18 @@ python tester.py
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 Choose project for testing:
-  [1] Django Backend Service
-  [2] React Frontend Application
+  [1] Django Backend API
+  [2] React Frontend UI
   [3] Custom Project Path...
   [0] Exit
+
+What type of Test/Simulation:
+  [1] Ecosystem Unit & Component Tests  - Delegates to project runner (pytest / vitest)
+  [2] Native Algorithm Benchmark        - Pure CS stress test (Quicksort, SHA-256)
+  [3] Native Concurrency Simulation     - Analytical peak traffic & capacity model
+  [4] Native System & Health Check      - Host CPU, memory, runtime environment
+  [5] Full Comprehensive Suite          - Complete run: Unit Tests + Algorithms + Simulation
+  [0] Back to Project Selection
 ```
 
 ---
@@ -63,27 +71,24 @@ Choose project for testing:
 ```text
 UniversalTester/
 ├── tester.py                     <-- Main terminal interactive CLI entrypoint
-├── tester_config.json            <-- Active multi-project configuration & paths
 ├── tester_config.example.json    <-- Example configuration template
+├── tester_config.json            <-- Local active project configuration (ignored)
 ├── requirements.txt              <-- Optional test & benchmark dependencies
 ├── run.cmd / run.ps1             <-- Portable Windows execution launchers
 ├── README.md                     <-- Documentation and usage guide
-├── ARCHITECTURE.md               <-- Guide to creating new adapters & adding frameworks
+├── ARCHITECTURE.md               <-- Two-pillar hybrid architecture guide
+├── CHANGELOG.md                  <-- Release version log
 ├── LICENSE                       <-- MIT License
 ├── core/
+│   ├── reporter.py               <-- Stream parser & analytical metrics dashboard
 │   └── ui.py                     <-- Terminal formatting, ANSI colors & screen clearing
 ├── adapters/
-│   ├── base.py                   <-- BaseAdapter interface (all frameworks inherit this)
+│   ├── base.py                   <-- BaseAdapter interface & universal health checks
 │   ├── django_adapter.py         <-- Django & DRF test execution & concurrency simulations
-│   ├── node_adapter.py           <-- Node.js / React / Vite / Next.js adapter
-│   ├── fastapi_adapter.py        <-- FastAPI / Pytest adapter
-│   └── go_adapter.py             <-- Go (go test) adapter
+│   └── node_adapter.py           <-- Node.js / React / Vite / Next.js adapter
 └── Performance/
-    ├── simulate_concurrent_load.py
-    ├── simulate_output.txt
-    ├── performance_tests.py
-    ├── quick_performance_test.py
-    └── test_algorithms.py
+    ├── test_algorithms.py        <-- Pure Universal CS stress benchmarks (Option A)
+    └── simulate_concurrent_load.py <-- Analytical peak traffic & saturation model
 ```
 
 ---
