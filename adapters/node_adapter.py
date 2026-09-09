@@ -4,6 +4,7 @@ Executes JavaScript/TypeScript test suites (Jest, Vitest, npm test), builds, and
 """
 import os
 import subprocess
+import sys
 from typing import Dict, Any
 
 from adapters.base import BaseAdapter
