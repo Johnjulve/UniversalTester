@@ -233,7 +233,12 @@ class AnalyticalTestReporter:
         print(f"{Colors.DIM}├{'─' * col_mod}┼{'─' * col_tot}┼{'─' * col_pass}┼{'─' * col_fail}┼{'─' * col_stat}┤{Colors.RESET}")
 
         if not self.modules:
-            status_text = f"{Colors.BRIGHT_GREEN}✔ PASS{Colors.RESET}" if self.failed_tests == 0 else f"{Colors.BRIGHT_RED}✘ FAIL{Colors.RESET}"
+            if self.total_tests == 0 or (self.passed_tests == 0 and self.failed_tests == 0):
+                status_text = f"{Colors.DIM}○ UNAVAIL{Colors.RESET}"
+            elif self.failed_tests == 0:
+                status_text = f"{Colors.BRIGHT_GREEN}✔ PASS{Colors.RESET}"
+            else:
+                status_text = f"{Colors.BRIGHT_RED}✘ FAIL{Colors.RESET}"
             c_name = _pad_left(f" {self.suite_name[:col_mod - 3]}", col_mod)
             c_tot = _pad_center(str(self.total_tests), col_tot)
             c_pass = _pad_center(str(self.passed_tests), col_pass)
@@ -243,7 +248,12 @@ class AnalyticalTestReporter:
         else:
             for mod_name, stats in self.modules.items():
                 mod_display = mod_name if len(mod_name) <= col_mod - 3 else "..." + mod_name[-(col_mod - 6):]
-                mod_status = f"{Colors.BRIGHT_GREEN}✔ PASS{Colors.RESET}" if stats["failed"] == 0 else f"{Colors.BRIGHT_RED}✘ FAIL{Colors.RESET}"
+                if stats["failed"] > 0:
+                    mod_status = f"{Colors.BRIGHT_RED}✘ FAIL{Colors.RESET}"
+                elif stats["passed"] > 0:
+                    mod_status = f"{Colors.BRIGHT_GREEN}✔ PASS{Colors.RESET}"
+                else:
+                    mod_status = f"{Colors.DIM}○ SKIP{Colors.RESET}"
                 c_name = _pad_left(f" {Colors.CYAN}{mod_display}{Colors.RESET}", col_mod)
                 c_tot = _pad_center(str(stats['total']), col_tot)
                 c_pass = _pad_center(str(stats['passed']), col_pass)
@@ -253,7 +263,13 @@ class AnalyticalTestReporter:
 
         # Total Footer Row
         print(f"{Colors.DIM}├{'─' * col_mod}┼{'─' * col_tot}┼{'─' * col_pass}┼{'─' * col_fail}┼{'─' * col_stat}┤{Colors.RESET}")
-        overall_status = f"{Colors.BOLD}{Colors.BRIGHT_GREEN}100% OK{Colors.RESET}" if self.failed_tests == 0 and self.total_tests > 0 else f"{Colors.BOLD}{Colors.BRIGHT_RED}FAILED{Colors.RESET}"
+        active_tests = self.passed_tests + self.failed_tests
+        if self.failed_tests == 0 and self.passed_tests > 0:
+            overall_status = f"{Colors.BOLD}{Colors.BRIGHT_GREEN}100% OK{Colors.RESET}"
+        elif active_tests == 0:
+            overall_status = f"{Colors.DIM}UNAVAILABLE{Colors.RESET}"
+        else:
+            overall_status = f"{Colors.BOLD}{Colors.BRIGHT_RED}FAILED{Colors.RESET}"
         f_name = _pad_left(f" {Colors.BOLD}TOTAL SUITES{Colors.RESET}", col_mod)
         f_tot = _pad_center(f"{Colors.BOLD}{self.total_tests}{Colors.RESET}", col_tot)
         f_pass = _pad_center(f"{Colors.BOLD}{self.passed_tests}{Colors.RESET}", col_pass)
@@ -263,7 +279,7 @@ class AnalyticalTestReporter:
         print(f"{Colors.DIM}└{'─' * col_mod}┴{'─' * col_tot}┴{'─' * col_pass}┴{'─' * col_fail}┴{'─' * col_stat}┘{Colors.RESET}")
 
         # 3. Performance & Reliability Analytics
-        pass_ratio = (self.passed_tests / self.total_tests) if self.total_tests > 0 else 1.0
+        pass_ratio = (self.passed_tests / active_tests) if active_tests > 0 else 1.0
         bar_len = 20
         filled = int(pass_ratio * bar_len)
         bar_color = Colors.BRIGHT_GREEN if self.failed_tests == 0 else Colors.BRIGHT_RED
@@ -271,7 +287,9 @@ class AnalyticalTestReporter:
         
         avg_time = (self.duration_seconds / self.total_tests) if self.total_tests > 0 else 0.0
 
-        if self.failed_tests == 0:
+        if active_tests == 0:
+            grade = f"{Colors.DIM}Grade N/A (No active tests executed){Colors.RESET}"
+        elif self.failed_tests == 0:
             grade = f"{Colors.BOLD}{Colors.BRIGHT_GREEN}Grade A+{Colors.RESET} (No regressions, 100% contracts verified)"
         elif pass_ratio >= 0.90:
             grade = f"{Colors.BOLD}{Colors.YELLOW}Grade B{Colors.RESET} (Minor failures detected, check diagnostics)"
@@ -285,3 +303,108 @@ class AnalyticalTestReporter:
         print(f"  • {Colors.GRAY}System Health    :{Colors.RESET} {grade}\n")
 
         return self.failed_tests == 0
+
+
+def render_overall_summary(project_name: str, results: Dict[str, Any]) -> Any:
+    """
+    Render a consolidated multi-suite analytical summary table across all executed phases.
+    Handles UNAVAILABLE capabilities gracefully without penalizing system health grade.
+    """
+    from core.models import TestResult, TestStatus
+    print_divider()
+    print(f"\n{Colors.BOLD}OVERALL TEST SUITE SUMMARY FOR {project_name.upper()}:{Colors.RESET}\n")
+
+    w = min(get_terminal_width(), 80)
+    col_mod = max(w - 38, 22)
+    col_tot = 7
+    col_pass = 8
+    col_fail = 8
+    col_stat = 10
+
+    h_mod = _pad_left(f" {Colors.BOLD}Phase / Suite{Colors.RESET}", col_mod)
+    h_tot = _pad_center(f"{Colors.BOLD}Tests{Colors.RESET}", col_tot)
+    h_pass = _pad_center(f"{Colors.BOLD}Passed{Colors.RESET}", col_pass)
+    h_fail = _pad_center(f"{Colors.BOLD}Failed{Colors.RESET}", col_fail)
+    h_stat = _pad_center(f"{Colors.BOLD}Status{Colors.RESET}", col_stat)
+
+    print(f"{Colors.DIM}┌{'─' * col_mod}┬{'─' * col_tot}┬{'─' * col_pass}┬{'─' * col_fail}┬{'─' * col_stat}┐{Colors.RESET}")
+    print(f"{Colors.DIM}│{Colors.RESET}{h_mod}{Colors.DIM}│{Colors.RESET}{h_tot}{Colors.DIM}│{Colors.RESET}{h_pass}{Colors.DIM}│{Colors.RESET}{h_fail}{Colors.DIM}│{Colors.RESET}{h_stat}{Colors.DIM}│{Colors.RESET}")
+    print(f"{Colors.DIM}├{'─' * col_mod}┼{'─' * col_tot}┼{'─' * col_pass}┼{'─' * col_fail}┼{'─' * col_stat}┤{Colors.RESET}")
+
+    total_exec = 0
+    total_passed = 0
+    total_failed = 0
+    total_skipped = 0
+    all_passed = True
+    errors = []
+
+    for suite_key, result in results.items():
+        title = suite_key.capitalize()
+        if hasattr(result, 'is_unavailable') and result.is_unavailable:
+            c_name = _pad_left(f" {Colors.GRAY}{title} (Unsupported){Colors.RESET}", col_mod)
+            c_tot = _pad_center("-", col_tot)
+            c_pass = _pad_center("-", col_pass)
+            c_fail = _pad_center("-", col_fail)
+            c_stat = _pad_center(f"{Colors.DIM}○ UNAVAIL{Colors.RESET}", col_stat)
+            total_skipped += 1
+        elif hasattr(result, 'is_success') and result.is_success:
+            c_name = _pad_left(f" {Colors.CYAN}{title}{Colors.RESET}", col_mod)
+            c_tot = _pad_center(str(result.total or 1), col_tot)
+            c_pass = _pad_center(str(result.passed or 1), col_pass)
+            c_fail = _pad_center("0", col_fail)
+            c_stat = _pad_center(f"{Colors.BRIGHT_GREEN}✔ PASS{Colors.RESET}", col_stat)
+            total_exec += result.total or 1
+            total_passed += result.passed or 1
+        else:
+            c_name = _pad_left(f" {Colors.CYAN}{title}{Colors.RESET}", col_mod)
+            r_tot = getattr(result, 'total', 1) or 1
+            r_pass = getattr(result, 'passed', 0)
+            r_fail = getattr(result, 'failed', 1) or 1
+            c_tot = _pad_center(str(r_tot), col_tot)
+            c_pass = _pad_center(str(r_pass), col_pass)
+            c_fail = _pad_center(str(r_fail), col_fail)
+            c_stat = _pad_center(f"{Colors.BRIGHT_RED}✘ FAIL{Colors.RESET}", col_stat)
+            total_exec += r_tot
+            total_passed += r_pass
+            total_failed += r_fail
+            all_passed = False
+            if hasattr(result, 'errors'):
+                errors.extend(result.errors)
+
+        print(f"{Colors.DIM}│{Colors.RESET}{c_name}{Colors.DIM}│{Colors.RESET}{c_tot}{Colors.DIM}│{Colors.RESET}{c_pass}{Colors.DIM}│{Colors.RESET}{c_fail}{Colors.DIM}│{Colors.RESET}{c_stat}{Colors.DIM}│{Colors.RESET}")
+
+    # Total Footer
+    print(f"{Colors.DIM}├{'─' * col_mod}┼{'─' * col_tot}┼{'─' * col_pass}┼{'─' * col_fail}┼{'─' * col_stat}┤{Colors.RESET}")
+    overall_status = f"{Colors.BOLD}{Colors.BRIGHT_GREEN}100% OK{Colors.RESET}" if all_passed and total_passed > 0 else f"{Colors.BOLD}{Colors.BRIGHT_RED}FAILED{Colors.RESET}"
+    if total_exec == 0 and total_skipped > 0:
+        overall_status = f"{Colors.DIM}UNAVAILABLE{Colors.RESET}"
+
+    f_name = _pad_left(f" {Colors.BOLD}TOTAL ACTIVE{Colors.RESET}", col_mod)
+    f_tot = _pad_center(f"{Colors.BOLD}{total_exec}{Colors.RESET}", col_tot)
+    f_pass = _pad_center(f"{Colors.BOLD}{total_passed}{Colors.RESET}", col_pass)
+    f_fail = _pad_center(f"{Colors.BOLD}{total_failed}{Colors.RESET}", col_fail)
+    f_stat = _pad_center(overall_status, col_stat)
+    print(f"{Colors.DIM}│{Colors.RESET}{f_name}{Colors.DIM}│{Colors.RESET}{f_tot}{Colors.DIM}│{Colors.RESET}{f_pass}{Colors.DIM}│{Colors.RESET}{f_fail}{Colors.DIM}│{Colors.RESET}{f_stat}{Colors.DIM}│{Colors.RESET}")
+    print(f"{Colors.DIM}└{'─' * col_mod}┴{'─' * col_tot}┴{'─' * col_pass}┴{'─' * col_fail}┴{'─' * col_stat}┘{Colors.RESET}")
+
+    # Grade calculation
+    pass_ratio = (total_passed / total_exec) if total_exec > 0 else 1.0
+    if total_exec == 0:
+        grade = f"{Colors.DIM}Grade N/A (Only unavailable capabilities requested){Colors.RESET}"
+    elif all_passed:
+        grade = f"{Colors.BOLD}{Colors.BRIGHT_GREEN}Grade A+{Colors.RESET} (100% contracts verified)"
+    elif pass_ratio >= 0.90:
+        grade = f"{Colors.BOLD}{Colors.YELLOW}Grade B{Colors.RESET} (Minor failures detected)"
+    else:
+        grade = f"{Colors.BOLD}{Colors.BRIGHT_RED}Grade F{Colors.RESET} (Critical failure count)"
+
+    print(f"\n{Colors.BOLD}{Colors.WHITE}📊 Overall Health Grade:{Colors.RESET} {grade}\n")
+
+    return TestResult(
+        suite_name=f"{project_name} Overall Suite",
+        status=TestStatus.PASSED if all_passed else TestStatus.FAILED,
+        passed=total_passed,
+        failed=total_failed,
+        skipped=total_skipped,
+        errors=errors
+    )

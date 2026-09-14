@@ -55,6 +55,18 @@ class TestResult:
         )
 
     @classmethod
+    def passed_result(cls, suite_name: str, total: int = 1, passed: int = 1, duration: float = 0.0) -> 'TestResult':
+        """Convenience constructor for passed test suites."""
+        return cls(
+            suite_name=suite_name,
+            status=TestStatus.PASSED,
+            passed=passed,
+            failed=0,
+            skipped=0,
+            duration=duration
+        )
+
+    @classmethod
     def unavailable(cls, suite_name: str, reason: str = "") -> 'TestResult':
         """Construct a standardized result indicating a test type is unsupported/unavailable."""
         return cls(
@@ -69,7 +81,7 @@ class TestResult:
         )
 
     @classmethod
-    def skipped(cls, suite_name: str, reason: str = "") -> 'TestResult':
+    def skipped_result(cls, suite_name: str, reason: str = "") -> 'TestResult':
         """Construct a standardized result indicating a test was intentionally skipped."""
         return cls(
             suite_name=suite_name,
@@ -80,4 +92,4 @@ class TestResult:
             duration=0.0,
             errors=[reason] if reason else [],
             raw_output=reason
-        )
+        )
