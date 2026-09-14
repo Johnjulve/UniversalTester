@@ -1,52 +1,94 @@
 """
 Base adapter interface for multi-framework test execution.
-Enables expanding the Universal Tester to Node, React, Go, FastAPI, etc.
+Enables expanding UniversalTester to Python, Node/React, and future ecosystems.
 """
+import os
 import sys
+import shutil
+import platform
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Set
+
+from core.models import TestResult, TestStatus
+from core.ui import Colors, print_section_header, print_status, print_divider
+
+
+class Capability:
+    """Standardized test runner capability identifiers."""
+    COMPONENTS = "components"
+    SIMULATION = "simulation"
+    ALGORITHMS = "algorithms"
+    BENCHMARKS = "benchmarks"
+    HEALTH = "health"
 
 
 class BaseAdapter(ABC):
-    """Abstract interface defining required test runner hooks for any project type."""
+    """Abstract interface defining required test runner hooks and capabilities for any project type."""
 
     def __init__(self, project_config: Dict[str, Any]):
         self.config = project_config
         self.name = project_config.get('name', 'Unknown Project')
         self.project_path = project_config.get('path', '')
 
+    @classmethod
     @abstractmethod
-    def run_components_test(self) -> bool:
+    def adapter_id(cls) -> str:
+        """Unique identifier for this adapter (e.g., 'python', 'node')."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def display_name(cls) -> str:
+        """Human-readable name for this adapter."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def applies(cls, project_path: str) -> bool:
+        """Check if target project matches this ecosystem."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def is_available(cls) -> bool:
+        """Check if required runtime/test binary is installed on host system."""
+        pass
+
+    def supported_capabilities(self) -> Set[str]:
+        """Return the set of capabilities supported by this adapter for the current project."""
+        return {Capability.COMPONENTS, Capability.HEALTH}
+
+    def has_capability(self, capability: str) -> bool:
+        """Helper to test whether a capability is supported."""
+        return capability in self.supported_capabilities()
+
+    @abstractmethod
+    def run_components_test(self) -> TestResult:
         """Run fast component/unit test suite."""
         pass
 
     @abstractmethod
-    def run_simulation_test(self, concurrent_users: int) -> bool:
+    def run_simulation_test(self, concurrent_users: int) -> TestResult:
         """Run concurrent load simulation."""
         pass
 
     @abstractmethod
-    def run_overall_test(self) -> bool:
-        """Run comprehensive system & component suite."""
+    def run_overall_test(self) -> TestResult:
+        """Run comprehensive system & component suite across supported capabilities."""
         pass
 
     @abstractmethod
-    def run_benchmarks(self) -> bool:
+    def run_benchmarks(self) -> TestResult:
         """Run performance/latency benchmarks."""
         pass
 
     @abstractmethod
-    def run_algorithms_test(self) -> bool:
+    def run_algorithms_test(self) -> TestResult:
         """Run algorithm verification & performance checks."""
         pass
 
-    def run_health_check(self) -> bool:
+    def run_health_check(self) -> TestResult:
         """Run universal system, host resource, and environment health check."""
-        import platform
-        import shutil
-        import os
-        from core.ui import Colors, print_section_header, print_status, print_divider
-
         print_section_header(f"System & Environment Health Check: {self.name}")
         
         checks = []
@@ -77,14 +119,25 @@ class BaseAdapter(ABC):
             checks.append(("Target Directory", f"Path not found: {self.project_path}", False))
 
         # Render Health Checklist
-        all_passed = True
+        passed_count = 0
+        failed_count = 0
+        errors = []
         for title, detail, ok in checks:
             tag = "PASS" if ok else "FAIL"
             color = Colors.BRIGHT_GREEN if ok else Colors.BRIGHT_RED
             print_status(tag, f"{title}: {Colors.WHITE}{detail}{Colors.RESET}", color=color)
-            if not ok:
-                all_passed = False
+            if ok:
+                passed_count += 1
+            else:
+                failed_count += 1
+                errors.append(f"{title}: {detail}")
                 
         print()
-        return all_passed
-
+        status = TestStatus.PASSED if failed_count == 0 else TestStatus.FAILED
+        return TestResult(
+            suite_name=f"{self.name} System Health",
+            status=status,
+            passed=passed_count,
+            failed=failed_count,
+            errors=errors
+        )
