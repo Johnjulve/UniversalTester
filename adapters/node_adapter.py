@@ -3,15 +3,17 @@ Node.js / React / Frontend framework adapter.
 Executes JavaScript/TypeScript test suites (Vitest, Jest, npm test), builds, and benchmarks.
 """
 import os
+import json
+import shutil
 import subprocess
 import sys
 import time
-from typing import Dict, Any, Set
+from typing import Dict, Any, Set, Optional
 
 from adapters.base import BaseAdapter, Capability
 from core.models import TestResult, TestStatus
 from core.ui import Colors, print_section_header, print_status, print_divider
-from core.reporter import AnalyticalTestReporter
+from core.reporter import AnalyticalTestReporter, render_overall_summary
 
 
 class NodeAdapter(BaseAdapter):
@@ -37,7 +39,6 @@ class NodeAdapter(BaseAdapter):
 
     @classmethod
     def is_available(cls) -> bool:
-        import shutil
         return shutil.which('npm') is not None or shutil.which('node') is not None
 
     def supported_capabilities(self) -> Set[str]:
@@ -49,17 +50,61 @@ class NodeAdapter(BaseAdapter):
 
     def __init__(self, project_config: Dict[str, Any]):
         super().__init__(project_config)
-        # Check if project has a frontend subdirectory or is the frontend project itself
-        frontend_sub = os.path.join(self.project_path, 'frontend')
-        if os.path.exists(frontend_sub):
-            self.frontend_dir = project_config.get('frontend_dir', frontend_sub)
+        # Check if project has an explicit or default frontend subdirectory
+        configured_front = project_config.get('frontend_dir')
+        if configured_front and os.path.exists(configured_front):
+            self.frontend_dir = configured_front
         else:
-            self.frontend_dir = project_config.get('frontend_dir', self.project_path)
+            frontend_sub = os.path.join(self.project_path, 'frontend')
+            if os.path.exists(frontend_sub):
+                self.frontend_dir = frontend_sub
+            else:
+                self.frontend_dir = self.project_path
+
+    def _resolve_npm_cmd(self, pkg_json_path: str) -> Optional[list]:
+        """
+        Inspect package.json to detect test runner and construct non-blocking test command.
+        Returns command list if a test script is found, or None if no test script is configured.
+        """
+        try:
+            with open(pkg_json_path, 'r', encoding='utf-8') as f:
+                pkg = json.load(f)
+        except Exception as e:
+            return None
+
+        scripts = pkg.get('scripts', {})
+        candidate_keys = ['test', 'test:unit', 'test:run', 'unit']
+        selected_key = next((k for k in candidate_keys if k in scripts), None)
+
+        if not selected_key:
+            return None
+
+        deps = {**pkg.get('dependencies', {}), **pkg.get('devDependencies', {})}
+        script_body = str(scripts.get(selected_key, ''))
+
+        is_vitest = 'vitest' in deps or 'vitest' in script_body
+        is_jest = 'jest' in deps or 'react-scripts' in deps or 'jest' in script_body
+
+        if selected_key == 'test':
+            cmd = ['npm', 'test']
+        else:
+            cmd = ['npm', 'run', selected_key]
+
+        # Append non-blocking flags based on detected runner
+        if is_vitest:
+            if '--run' not in script_body and 'run' not in script_body.split():
+                cmd.extend(['--', '--run'])
+        elif is_jest:
+            if '--watchAll=false' not in script_body and '--watch=false' not in script_body:
+                cmd.extend(['--', '--watchAll=false'])
+
+        return cmd
 
     def run_components_test(self) -> TestResult:
+        """Run frontend unit/component tests with smart runner detection and graceful fallback."""
         suite_name = f"{self.name} Frontend Tests"
-        print_section_header(f"Running Frontend Unit Tests (npm test) for {self.name}")
-        
+        print_section_header(f"Running Frontend Unit Tests for {self.name}")
+
         if not os.path.exists(self.frontend_dir):
             reason = f"Directory not found: {self.frontend_dir}"
             print_status("UNAVAIL", reason, color=Colors.DIM)
@@ -71,7 +116,13 @@ class NodeAdapter(BaseAdapter):
             print_status("UNAVAIL", reason, color=Colors.DIM)
             return TestResult.unavailable(suite_name, reason)
 
-        cmd = ['npm', 'test', '--', '--watchAll=false']
+        cmd = self._resolve_npm_cmd(pkg_json)
+        if not cmd:
+            reason = "No 'test' script defined in package.json"
+            print_status("UNAVAIL", reason, color=Colors.DIM)
+            return TestResult.unavailable(suite_name, reason)
+
+        print(f"\n{Colors.DIM}Executing: {' '.join(cmd)} (cwd: {self.frontend_dir}){Colors.RESET}\n")
         reporter = AnalyticalTestReporter(suite_name=suite_name)
         start_time = time.time()
         try:
@@ -119,6 +170,7 @@ class NodeAdapter(BaseAdapter):
 
     def run_algorithms_test(self) -> TestResult:
         """Run the universal CS algorithm benchmarks."""
+        print_section_header(f"Running Algorithm Benchmarks for {self.name}")
         algo_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Performance', 'test_algorithms.py'))
         start_time = time.time()
         try:
@@ -131,46 +183,17 @@ class NodeAdapter(BaseAdapter):
             return TestResult(suite_name=f"{self.name} Algorithms", status=TestStatus.ERROR, failed=1, errors=[str(e)])
 
     def run_overall_test(self) -> TestResult:
+        """Run full test suite: components, algorithms, and health check with consolidated summary."""
         print_section_header(f"Running Full Overall Suite for {self.name}")
         results: Dict[str, TestResult] = {}
-        
+
         print(f"\n{Colors.BOLD}{Colors.CYAN}[Phase 1/3] Executing Frontend Unit Tests...{Colors.RESET}")
         results['components'] = self.run_components_test()
-        
+
         print(f"\n{Colors.BOLD}{Colors.CYAN}[Phase 2/3] Executing Algorithm Benchmarks...{Colors.RESET}")
         results['algorithms'] = self.run_algorithms_test()
-        
+
         print(f"\n{Colors.BOLD}{Colors.CYAN}[Phase 3/3] Executing Health Check...{Colors.RESET}")
         results['health'] = self.run_health_check()
-        
-        print_divider()
-        print(f"\n{Colors.BOLD}OVERALL TEST SUITE SUMMARY FOR {self.name.upper()}:{Colors.RESET}\n")
-        
-        total_passed = 0
-        total_failed = 0
-        total_skipped = 0
-        all_passed = True
-        errors = []
-        
-        for suite_key, result in results.items():
-            if result.is_unavailable:
-                print_status("UNAVAIL", f"{suite_key.capitalize()} Suite (Not Supported)", color=Colors.DIM)
-                total_skipped += 1
-            elif result.is_success:
-                print_status("PASS", f"{suite_key.capitalize()} Suite", color=Colors.BRIGHT_GREEN)
-                total_passed += result.passed or 1
-            else:
-                print_status("FAIL", f"{suite_key.capitalize()} Suite", color=Colors.BRIGHT_RED)
-                total_failed += result.failed or 1
-                all_passed = False
-                errors.extend(result.errors)
-                
-        print()
-        return TestResult(
-            suite_name=f"{self.name} Overall Suite",
-            status=TestStatus.PASSED if all_passed else TestStatus.FAILED,
-            passed=total_passed,
-            failed=total_failed,
-            skipped=total_skipped,
-            errors=errors
-        )
+
+        return render_overall_summary(self.name, results)
