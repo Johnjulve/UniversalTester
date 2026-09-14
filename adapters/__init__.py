@@ -16,5 +16,5 @@ def get_adapter(project_config: Dict[str, Any]) -> BaseAdapter:
     elif p_type in ('node', 'react', 'vite'):
         return NodeAdapter(project_config)
     else:
-        # Default to Django for E-Botar projects
+        # Default to Django/Python adapter
         return DjangoAdapter(project_config)

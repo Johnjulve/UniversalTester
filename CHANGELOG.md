@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## [Unreleased]
+### Planned
+- **Zero-Bias Runtime & Configuration Sanitization**: Purge legacy external thesis fallback paths from Windows launchers (`run.cmd`, `run.ps1`) and configuration templates.
+- **Dynamic Adapter Registry & Type Contract**: Implement formal `BaseAdapter` interface requiring strongly-typed `TestResult` objects, supported by automatic project type discovery in `adapters/registry.py`.
+- **Smart Dual-Engine Adapters**: Upgrade `NodeAdapter` to auto-detect Vitest/Jest/npm test runners from `package.json`, and generalize `DjangoAdapter` to handle arbitrary Python/pytest suites.
+- **Generic Traffic Concurrency Engine**: Transition `simulate_concurrent_load.py` from legacy election data models to configurable web/API workload profiles (read-heavy, write-heavy, burst pings).
+
 ### Added
 - **Standardized Test Result Model**: Created `core/models.py` defining the `TestResult` dataclass and `TestStatus` states for unified test reporting across native benchmarks and ecosystem adapters.
+- **Master Phased Implementation Plan**: Established `docs/plans/implementation_plan.md` featuring 5-phase execution gates and rollback checkpoint protocols.
+
 ### Fixed
 - **Node Adapter Runtime Import**: Added missing `sys` import in `adapters/node_adapter.py` preventing runtime `NameError` crash during algorithm benchmarks.
 

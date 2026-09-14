@@ -72,13 +72,13 @@ class AnalyticalTestReporter:
             return
 
         # Check for noise to filter or convert to status badges
-        if "Creating test database" in line or "Found 42 test(s)" in line:
+        if "Creating test database" in line or re.search(r"Found \d+ test\(s\)", line):
             print(f"  {Colors.DIM}{Colors.CYAN}⚙  [FIXTURES] Initializing ephemeral test database...{Colors.RESET}")
             return
         if "Destroying test database" in line:
             print(f"\n  {Colors.DIM}{Colors.GRAY}🧹 [TEARDOWN] Cleaning test database & memory caches...{Colors.RESET}")
             return
-        if "System check identified no issues" in line or "Updated legacy vote receipts" in line:
+        if "System check identified no issues" in line:
             return
 
         # Check for timing line

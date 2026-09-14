@@ -7,9 +7,9 @@
 ## 🎯 Key Capabilities
 
 - 🖥️ **Interactive Terminal UI**: Intuitive numbered menus with automatic screen clearing, color-coded status badges, and clean progress indicators.
-- 🌐 **Multi-Project Management**: Effortlessly switch between multiple applications (`E_Botar`, `E_Botar lite`, or custom projects) from a single hub.
-- 🔌 **Pluggable Adapter Architecture**: Ready-to-use adapters for **Django**, **Node.js/React**, **FastAPI**, and **Go**, with an open interface to add any language or framework.
-- 📊 **Analytical Concurrency Simulation**: Mathematical load modeling for high-traffic peak events (e.g. 50 to 2,000 concurrent voters/users) calculating egress, req/s, and server hardware utilization.
+- 🌐 **Multi-Project Management**: Effortlessly switch between multiple projects (Python backends, React/Node frontends, or custom paths) from a single hub.
+- 🔌 **Pluggable Adapter Architecture**: Ready-to-use adapters for **Python/Django** and **Node.js/React**, with an open interface to add any language or framework.
+- 📊 **Analytical Concurrency Simulation**: Mathematical load modeling for high-traffic peak events (e.g. 50 to 2,000 concurrent users/requests) calculating egress, req/s, and server hardware utilization.
 - ⚡ **Automated Benchmarking**: Latency, database query count profiling, and algorithm speed verification.
 
 ---

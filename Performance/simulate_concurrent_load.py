@@ -1,14 +1,13 @@
 """
-Analytical concurrent-load simulation for E-Botar.
+Analytical concurrent-load simulation engine.
 
-Models what happens when N users act at the same time during peak events
-(login rush, voting rush, results browsing). Uses payload sizes and throttle
-limits from the current codebase (v3.0 / E_Botar).
+Models what happens when N users act simultaneously during high-concurrency peak events
+(authentication bursts, transactional write rushes, results/data read streams).
+Calculates throughput (req/s), outbound bandwidth/egress, and hardware utilization curves.
 
 Run:
-  python manage.py simulate_concurrent_load
-  python manage.py simulate_concurrent_load --total-students 2000 --concurrent 100,250,500
-  python manage.py simulate_concurrent_load --scenario vote_rush --concurrent 500
+  python Performance/simulate_concurrent_load.py --concurrent 50,100,500
+  python Performance/simulate_concurrent_load --scenario read_heavy --concurrent 500
 """
 from __future__ import annotations
 
