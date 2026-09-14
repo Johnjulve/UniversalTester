@@ -65,10 +65,11 @@ def get_adapter(project_config: Dict[str, Any]) -> BaseAdapter:
 
     # 1. Direct type resolution from registry or known aliases
     type_aliases = {
+        'python': 'python',
         'django': 'django',
-        'python': 'django',
-        'fastapi': 'django',
-        'flask': 'django',
+        'fastapi': 'python',
+        'flask': 'python',
+        'pytest': 'python',
         'node': 'node',
         'react': 'node',
         'vite': 'node',
@@ -88,14 +89,17 @@ def get_adapter(project_config: Dict[str, Any]) -> BaseAdapter:
         return detected_cls(project_config)
 
     # 3. Default fallback
-    default_cls = _ADAPTER_REGISTRY.get('django') or list(_ADAPTER_REGISTRY.values())[0]
+    default_cls = _ADAPTER_REGISTRY.get('python') or _ADAPTER_REGISTRY.get('django') or list(_ADAPTER_REGISTRY.values())[0]
     return default_cls(project_config)
 
 
 def _ensure_defaults_registered():
-    """Ensure core built-in adapters (Django, Node) are registered."""
+    """Ensure core built-in adapters (Python, Django, Node) are registered."""
     if not _ADAPTER_REGISTRY:
+        from adapters.python_adapter import PythonAdapter
         from adapters.django_adapter import DjangoAdapter
         from adapters.node_adapter import NodeAdapter
+        register_adapter(PythonAdapter)
         register_adapter(DjangoAdapter)
         register_adapter(NodeAdapter)
+

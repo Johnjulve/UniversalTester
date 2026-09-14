@@ -23,7 +23,7 @@ from core.ui import (
     print_divider,
     print_status
 )
-from adapters import get_adapter
+from adapters import get_adapter, detect_adapter
 
 
 def load_config() -> Dict[str, Any]:
@@ -84,13 +84,8 @@ def select_project(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         elif choice == custom_key:
             custom_path = get_user_input("Enter absolute project path: ").strip()
             if os.path.exists(custom_path):
-                # Auto-detect framework: Django vs React / Node.js
-                is_node = os.path.exists(os.path.join(custom_path, 'package.json'))
-                is_django = (
-                    os.path.exists(os.path.join(custom_path, 'manage.py')) or 
-                    os.path.exists(os.path.join(custom_path, 'backend', 'manage.py'))
-                )
-                proj_type = "react" if is_node and not is_django else "django"
+                detected_cls = detect_adapter(custom_path)
+                proj_type = detected_cls.adapter_id() if detected_cls else "python"
                 
                 backend_candidate = os.path.join(custom_path, "backend")
                 frontend_candidate = os.path.join(custom_path, "frontend")
@@ -104,6 +99,7 @@ def select_project(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                     "frontend_dir": frontend_candidate if os.path.exists(frontend_candidate) else custom_path,
                     "python_env": sys.executable
                 }
+
             else:
                 error_msg = f"Path does not exist: {custom_path}"
         else:
