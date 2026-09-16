@@ -67,29 +67,90 @@ class PythonAdapter(BaseAdapter):
                 self.backend_dir = self.project_path
 
         # Dynamic python environment resolution: config -> project venvs -> fallback to sys.executable
-        configured_py = project_config.get('python_env')
-        if configured_py and os.path.exists(configured_py):
-            self.python_bin = configured_py
-        else:
-            candidates = [
-                os.path.join(self.project_path, '.venv', 'Scripts', 'python.exe'),
-                os.path.join(self.project_path, 'venv', 'Scripts', 'python.exe'),
-                os.path.join(self.project_path, 'env', 'Scripts', 'python.exe'),
-                os.path.join(self.project_path, '.venv', 'bin', 'python'),
-                os.path.join(self.project_path, 'venv', 'bin', 'python'),
-                os.path.join(self.project_path, 'env', 'bin', 'python'),
-                os.path.join(self.backend_dir, '.venv', 'Scripts', 'python.exe'),
-                os.path.join(self.backend_dir, 'venv', 'Scripts', 'python.exe'),
-                os.path.join(self.backend_dir, 'env', 'Scripts', 'python.exe'),
-                os.path.join(self.backend_dir, '.venv', 'bin', 'python'),
-                os.path.join(self.backend_dir, 'venv', 'bin', 'python'),
-                os.path.join(self.backend_dir, 'env', 'bin', 'python'),
-            ]
-            self.python_bin = next((p for p in candidates if os.path.exists(p)), sys.executable)
+        self.python_bin = self._resolve_python_environment(project_config.get('python_env'))
 
         # Testing directory path relative to this file
         self.testing_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         self.performance_dir = os.path.join(self.testing_dir, 'Performance')
+
+    def _resolve_python_environment(self, configured_py: Optional[str]) -> str:
+        """
+        Dynamically locate the appropriate Python virtual environment executable:
+        1. Explicit configuration (if provided and valid executable).
+        2. Candidate virtual environments in backend, project root, and parent directories.
+        3. Active shell virtual environment ($VIRTUAL_ENV).
+        4. Fallback to sys.executable.
+        """
+        if configured_py and os.path.isfile(configured_py):
+            return os.path.abspath(configured_py)
+
+        venv_folder_names = ['.venv', 'venv', 'env', '.env', 'virtualenv', '.virtualenv', 'pyenv']
+        bin_subpaths = [
+            os.path.join('Scripts', 'python.exe'),
+            os.path.join('bin', 'python3'),
+            os.path.join('bin', 'python'),
+            'python.exe'
+        ]
+
+        # Scan backend_dir, project_path, and their parent folders
+        search_roots: List[str] = []
+        for d in [
+            self.backend_dir,
+            self.project_path,
+            os.path.dirname(os.path.abspath(self.project_path)) if self.project_path else None,
+            os.path.dirname(os.path.abspath(self.backend_dir)) if self.backend_dir else None,
+        ]:
+            if d and os.path.isdir(d):
+                norm_d = os.path.abspath(d)
+                if norm_d not in search_roots:
+                    search_roots.append(norm_d)
+
+        found_interpreters: List[str] = []
+
+        for root in search_roots:
+            for v_name in venv_folder_names:
+                v_dir = os.path.join(root, v_name)
+                if os.path.isdir(v_dir):
+                    for b_sub in bin_subpaths:
+                        candidate = os.path.join(v_dir, b_sub)
+                        if os.path.isfile(candidate):
+                            abs_cand = os.path.abspath(candidate)
+                            if abs_cand not in found_interpreters:
+                                found_interpreters.append(abs_cand)
+
+        # Also inspect active shell virtualenv
+        active_env = os.environ.get('VIRTUAL_ENV')
+        if active_env and os.path.isdir(active_env):
+            for b_sub in bin_subpaths:
+                candidate = os.path.join(active_env, b_sub)
+                if os.path.isfile(candidate):
+                    abs_cand = os.path.abspath(candidate)
+                    if abs_cand not in found_interpreters:
+                        found_interpreters.insert(0, abs_cand)
+
+        if not found_interpreters:
+            return sys.executable
+
+        # Framework-aware verification: prefer the interpreter that can import framework dependencies
+        is_django = (
+            os.path.exists(os.path.join(self.backend_dir, 'manage.py')) or
+            os.path.exists(os.path.join(self.project_path, 'manage.py'))
+        )
+        if is_django:
+            for py_cand in found_interpreters:
+                try:
+                    res = subprocess.run(
+                        [py_cand, '-c', 'import django'],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=2
+                    )
+                    if res.returncode == 0:
+                        return py_cand
+                except Exception:
+                    continue
+
+        return found_interpreters[0]
 
     def _run_process(self, cmd: List[str], cwd: str, label: str) -> TestResult:
         """Run a subprocess and stream output with status reporting."""
@@ -148,6 +209,13 @@ class PythonAdapter(BaseAdapter):
                 reporter.feed_line(line)
 
             process.wait()
+
+            if process.returncode != 0 and reporter.total_tests == 0:
+                print(f"\n{Colors.BOLD}{Colors.BRIGHT_RED}✘ Test runner exited with code {process.returncode} before running tests:{Colors.RESET}")
+                for err_line in reporter.raw_unmatched_lines[-25:]:
+                    print(f"  {Colors.BRIGHT_RED}{err_line}{Colors.RESET}")
+                print()
+
             passed = reporter.render_dashboard()
             elapsed = time.time() - start_time
             success = passed and (process.returncode == 0)

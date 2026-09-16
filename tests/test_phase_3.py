@@ -75,8 +75,46 @@ def test_python_adapter():
         print("  ✔ Case C: DjangoAdapter backwards-compatible subclass confirmed")
 
 
+def test_python_venv_autodetection():
+    print("\n--- 3. Testing Dynamic Virtual Environment Auto-Detection ---")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        backend_dir = os.path.join(tmpdir, "backend")
+        os.makedirs(backend_dir, exist_ok=True)
+
+        # Case A: Venv at project root
+        venv_scripts = os.path.join(tmpdir, "venv", "Scripts" if sys.platform == "win32" else "bin")
+        os.makedirs(venv_scripts, exist_ok=True)
+        py_name = "python.exe" if sys.platform == "win32" else "python"
+        dummy_py = os.path.join(venv_scripts, py_name)
+        with open(dummy_py, "w", encoding="utf-8") as f:
+            f.write("#!/usr/bin/env python\n")
+
+        # Adapter pointing to backend subfolder should discover root venv
+        adapter = PythonAdapter({'id': 'test_venv', 'name': 'Test Venv', 'path': tmpdir, 'backend_dir': backend_dir})
+        resolved = adapter.python_bin
+        assert os.path.abspath(dummy_py) == os.path.abspath(resolved), f"Expected {dummy_py}, got {resolved}"
+        print(f"  ✔ Case A: Auto-detected root virtual environment from subfolder: {resolved}")
+
+
+def test_reporter_multiline_docstrings():
+    print("\n--- 4. Testing Reporter Multiline Docstring Parsing ---")
+    from core.reporter import AnalyticalTestReporter
+    reporter = AnalyticalTestReporter("Sample Test Suite")
+    reporter.feed_line("Creating test database for alias 'default'...")
+    reporter.feed_line("test_foo (tests.test_sample.SampleTest.test_foo)")
+    reporter.feed_line("Docstring describing test foo ... ok")
+    reporter.feed_line("test_bar (tests.test_sample.SampleTest.test_bar) ... ok")
+    reporter.feed_line("----------------------------------------------------------------------")
+    reporter.feed_line("Ran 2 tests in 0.123s")
+    reporter.feed_line("OK")
+
+    assert reporter.passed_tests == 2, f"Expected 2 passed tests, got {reporter.passed_tests}"
+    assert reporter.total_tests == 2, f"Expected 2 total tests, got {reporter.total_tests}"
+    print("  ✔ Multiline docstring test outputs parsed and matched correctly")
+
+
 def test_reporter_summary():
-    print("\n--- 3. Testing Reporter render_overall_summary Table ---")
+    print("\n--- 5. Testing Reporter render_overall_summary Table ---")
     mock_results = {
         'components': TestResult.unavailable('Frontend Tests', 'No test runner configured in package.json'),
         'algorithms': TestResult(suite_name='Algorithms Benchmark', status=TestStatus.PASSED, passed=4, failed=0, duration=0.15),
@@ -93,5 +131,7 @@ def test_reporter_summary():
 if __name__ == '__main__':
     test_node_adapter()
     test_python_adapter()
+    test_python_venv_autodetection()
+    test_reporter_multiline_docstrings()
     test_reporter_summary()
     print("\n🎉 ALL PHASE 3 VERIFICATION GATES PASSED SUCCESSFULLY!")
