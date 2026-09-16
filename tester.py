@@ -70,8 +70,7 @@ def select_project(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         for key, proj in projects.items():
             print_menu_option(key, proj.get("name", f"Project {key}"))
             
-        custom_key = str(len(projects) + 1)
-        print_menu_option(custom_key, "Custom Project Path...")
+        print_menu_option("C", "Custom Project Path...")
         print_menu_option("0", "Exit", "Close testing application")
         print()
         
@@ -81,7 +80,7 @@ def select_project(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             return None
         elif choice in projects:
             return projects[choice]
-        elif choice == custom_key:
+        elif choice.lower() in ("c", "custom"):
             custom_path = get_user_input("Enter absolute project path: ").strip().strip('"').strip("'")
             if os.path.exists(custom_path):
                 norm_custom = os.path.abspath(custom_path)
