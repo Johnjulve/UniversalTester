@@ -82,22 +82,43 @@ def select_project(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         elif choice in projects:
             return projects[choice]
         elif choice == custom_key:
-            custom_path = get_user_input("Enter absolute project path: ").strip()
+            custom_path = get_user_input("Enter absolute project path: ").strip().strip('"').strip("'")
             if os.path.exists(custom_path):
-                detected_cls = detect_adapter(custom_path)
+                norm_custom = os.path.abspath(custom_path)
+                base_name = os.path.basename(norm_custom).lower()
+
+                # If user entered a /backend or /frontend subfolder directly, infer root
+                if base_name in ('backend', 'server', 'api'):
+                    project_root = os.path.dirname(norm_custom)
+                    backend_dir = norm_custom
+                    frontend_cand = os.path.join(project_root, "frontend")
+                    frontend_dir = frontend_cand if os.path.exists(frontend_cand) else project_root
+                    display_name = os.path.basename(project_root) or "Custom Project"
+                elif base_name in ('frontend', 'client', 'web', 'ui'):
+                    project_root = os.path.dirname(norm_custom)
+                    frontend_dir = norm_custom
+                    backend_cand = os.path.join(project_root, "backend")
+                    backend_dir = backend_cand if os.path.exists(backend_cand) else project_root
+                    display_name = os.path.basename(project_root) or "Custom Project"
+                else:
+                    project_root = norm_custom
+                    backend_cand = os.path.join(norm_custom, "backend")
+                    frontend_cand = os.path.join(norm_custom, "frontend")
+                    backend_dir = backend_cand if os.path.exists(backend_cand) else norm_custom
+                    frontend_dir = frontend_cand if os.path.exists(frontend_cand) else norm_custom
+                    display_name = os.path.basename(norm_custom) or "Custom Project"
+
+                detected_cls = detect_adapter(backend_dir) or detect_adapter(project_root)
                 proj_type = detected_cls.adapter_id() if detected_cls else "python"
-                
-                backend_candidate = os.path.join(custom_path, "backend")
-                frontend_candidate = os.path.join(custom_path, "frontend")
                 
                 return {
                     "id": "custom",
-                    "name": os.path.basename(custom_path) or "Custom Project",
+                    "name": display_name,
                     "type": proj_type,
-                    "path": custom_path,
-                    "backend_dir": backend_candidate if os.path.exists(backend_candidate) else custom_path,
-                    "frontend_dir": frontend_candidate if os.path.exists(frontend_candidate) else custom_path,
-                    "python_env": sys.executable
+                    "path": project_root,
+                    "backend_dir": backend_dir,
+                    "frontend_dir": frontend_dir,
+                    "python_env": ""
                 }
 
             else:

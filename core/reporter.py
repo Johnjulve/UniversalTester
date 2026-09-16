@@ -64,6 +64,44 @@ class AnalyticalTestReporter:
         self._current_failure_title: str = ""
         self.start_time = time.time()
         self.raw_unmatched_lines: List[str] = []
+        self._pending_test: Optional[tuple] = None
+
+    def _record_test_result(self, method: str, path: str, status_upper: str):
+        """Record and display an individual test execution result."""
+        parts = path.split('.')
+        if parts and parts[-1] == method:
+            parts = parts[:-1]
+        class_name = parts[-1] if parts else "Test"
+        module_name = '.'.join(parts[:-1]) if len(parts) > 1 else "tests"
+
+        clean_name = method
+        if clean_name.startswith("test_"):
+            clean_name = clean_name[5:]
+        clean_desc = clean_name.replace("_", " ")
+
+        if module_name not in self.modules:
+            self.modules[module_name] = {"total": 0, "passed": 0, "failed": 0, "skipped": 0}
+
+        self.modules[module_name]["total"] += 1
+
+        if module_name != self.current_module:
+            self.current_module = module_name
+            short_mod = module_name.split('.')[-1] if '.' in module_name else module_name
+            print(f"\n  {Colors.BOLD}{Colors.BRIGHT_CYAN}📦 {short_mod}{Colors.RESET} {Colors.DIM}({module_name}){Colors.RESET}")
+
+        if "OK" in status_upper:
+            self.passed_tests += 1
+            self.modules[module_name]["passed"] += 1
+            print(f"    {Colors.BRIGHT_GREEN}✔{Colors.RESET} {Colors.WHITE}{class_name}{Colors.RESET} {Colors.GRAY}›{Colors.RESET} {clean_desc}")
+        elif "FAIL" in status_upper or "ERROR" in status_upper:
+            self.failed_tests += 1
+            self.modules[module_name]["failed"] += 1
+            badge = "✘ FAIL" if "FAIL" in status_upper else "✘ ERR"
+            print(f"    {Colors.BRIGHT_RED}{badge}{Colors.RESET} {Colors.WHITE}{class_name}{Colors.RESET} {Colors.GRAY}›{Colors.RESET} {Colors.BRIGHT_RED}{clean_desc}{Colors.RESET}")
+        else:
+            self.skipped_tests += 1
+            self.modules[module_name]["skipped"] += 1
+            print(f"    {Colors.YELLOW}○ SKIP{Colors.RESET} {Colors.WHITE}{class_name}{Colors.RESET} {Colors.GRAY}›{Colors.RESET} {clean_desc}")
 
     def feed_line(self, raw_line: str):
         """Process a single line of streamed test output."""
@@ -88,6 +126,16 @@ class AnalyticalTestReporter:
             self.duration_seconds = float(time_match.group(2))
             return
 
+        # Check for test runner suite success
+        if line == "OK" or line.startswith("OK ("):
+            if self.total_tests > 0 and self.failed_tests == 0 and self.passed_tests < self.total_tests:
+                diff = (self.total_tests - self.failed_tests - self.skipped_tests) - self.passed_tests
+                self.passed_tests += diff
+                if self.modules:
+                    first_mod = list(self.modules.keys())[0]
+                    self.modules[first_mod]["passed"] += diff
+            return
+
         # Check for failure block header (e.g. "FAIL: test_foo", "ERROR: test_bar")
         if line.startswith("FAIL: ") or line.startswith("ERROR: "):
             self._finish_current_failure()
@@ -103,52 +151,34 @@ class AnalyticalTestReporter:
                 self._current_failure_lines.append(line)
             return
 
-        # Check for unittest result line
-        match = self.UNITTEST_PATTERN.match(line)
+        # Check for standard single-line unittest: test_foo (path.Class) ... ok
+        match = self.UNITTEST_PATTERN.search(line)
         if match:
             method, path, status_raw = match.groups()
-            status_upper = status_raw.upper()
-
-            # Parse path into module and class
-            parts = path.split('.')
-            if parts and parts[-1] == method:
-                parts = parts[:-1]
-            class_name = parts[-1] if parts else "Test"
-            module_name = '.'.join(parts[:-1]) if len(parts) > 1 else "tests"
-
-            # Clean method name for high human readability
-            clean_name = method
-            if clean_name.startswith("test_"):
-                clean_name = clean_name[5:]
-            clean_desc = clean_name.replace("_", " ")
-
-            # Init module stats if new
-            if module_name not in self.modules:
-                self.modules[module_name] = {"total": 0, "passed": 0, "failed": 0, "skipped": 0}
-
-            self.modules[module_name]["total"] += 1
-
-            # Print module header when entering new module
-            if module_name != self.current_module:
-                self.current_module = module_name
-                short_mod = module_name.split('.')[-1] if '.' in module_name else module_name
-                print(f"\n  {Colors.BOLD}{Colors.BRIGHT_CYAN}📦 {short_mod}{Colors.RESET} {Colors.DIM}({module_name}){Colors.RESET}")
-
-            # Status handling
-            if "OK" in status_upper:
-                self.passed_tests += 1
-                self.modules[module_name]["passed"] += 1
-                print(f"    {Colors.BRIGHT_GREEN}✔{Colors.RESET} {Colors.WHITE}{class_name}{Colors.RESET} {Colors.GRAY}›{Colors.RESET} {clean_desc}")
-            elif "FAIL" in status_upper or "ERROR" in status_upper:
-                self.failed_tests += 1
-                self.modules[module_name]["failed"] += 1
-                badge = "✘ FAIL" if "FAIL" in status_upper else "✘ ERR"
-                print(f"    {Colors.BRIGHT_RED}{badge}{Colors.RESET} {Colors.WHITE}{class_name}{Colors.RESET} {Colors.GRAY}›{Colors.RESET} {Colors.BRIGHT_RED}{clean_desc}{Colors.RESET}")
-            else:
-                self.skipped_tests += 1
-                self.modules[module_name]["skipped"] += 1
-                print(f"    {Colors.YELLOW}○ SKIP{Colors.RESET} {Colors.WHITE}{class_name}{Colors.RESET} {Colors.GRAY}›{Colors.RESET} {clean_desc}")
+            self._record_test_result(method, path, status_raw.upper())
+            self._pending_test = None
             return
+
+        # Check for unittest test declaration line without status (docstrings will follow): test_foo (path.Class)
+        header_match = re.search(r"(test_\w+)\s+\(([\w\.]+)\)", line)
+        if header_match:
+            method, path = header_match.group(1), header_match.group(2)
+            status_match = re.search(r"\.\.\.\s*(ok|FAIL|ERROR|skipped.*)$", line, re.IGNORECASE)
+            if status_match:
+                self._record_test_result(method, path, status_match.group(1).upper())
+                self._pending_test = None
+            else:
+                self._pending_test = (method, path)
+            return
+
+        # Check if line completes a pending test (docstring finishing with ... ok)
+        if self._pending_test:
+            status_match = re.search(r"\.\.\.\s*(ok|FAIL|ERROR|skipped.*)$", line, re.IGNORECASE)
+            if status_match:
+                method, path = self._pending_test
+                self._record_test_result(method, path, status_match.group(1).upper())
+                self._pending_test = None
+                return
 
         # Check for Jest / Vitest / Node test runner lines
         if line.startswith("PASS ") or line.startswith("FAIL "):
