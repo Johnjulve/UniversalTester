@@ -1,115 +1,103 @@
 """
-Analytical concurrent-load simulation engine.
+Universal Concurrent-Load & Reliability Simulation Engine.
 
-Models what happens when N users act simultaneously during high-concurrency peak events
-(authentication bursts, transactional write rushes, results/data read streams).
-Calculates throughput (req/s), outbound bandwidth/egress, and hardware utilization curves.
+Framework-agnostic mathematical model calculating throughput (req/s),
+outbound egress, saturation thresholds, and hardware degradation curves
+when N users act concurrently against web applications and APIs.
+
+Supports standard traffic profiles:
+  - balanced_api : Standard RESTful CRUD workflow (50% GET / 30% POST / 20% PUT)
+  - read_heavy   : Content catalog & read-intensive browsing (85% GET / 15% POST)
+  - write_heavy  : High-volume data ingestion & transactional submissions (65% POST / 35% GET)
+  - burst_ping   : High-frequency polling, health checks & telemetry pings
 
 Run:
-  python Performance/simulate_concurrent_load.py --concurrent 50,100,500
-  python Performance/simulate_concurrent_load --scenario read_heavy --concurrent 500
+  python Performance/simulate_concurrent_load.py --scenario balanced_api --concurrent 500
+  python Performance/simulate_concurrent_load.py --concurrent 50,100,500,1000,2000
 """
 from __future__ import annotations
 
+import os
+import sys
 import math
+import argparse
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
-try:
-    from django.core.management.base import BaseCommand
-except ImportError:
-    class BaseCommand:
-        """Lightweight fallback when executed without full Django environment."""
+# Ensure stdout uses UTF-8 encoding
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
         pass
 
+# Logical CPU thread detection for host capacity scaling
+DETECTED_CPU_CORES = os.cpu_count() or 4
+_worker_factor = DETECTED_CPU_CORES / 4.0
 
-# --- Payload estimates (uncompressed JSON bytes, per user session) ---
-PAYLOAD_BYTES = {
-    'branding': 1_000,
-    'login': 1_200,
-    'dashboard_guest': 35_000,
-    'dashboard_auth_extra': 3_000,
-    'vote_page_load': 85_000,
-    'vote_submit': 2_500,
-    'results_page': 120_000,
-    'my_votes': 4_000,
-    'admin_voting_status_page': 120_000,  # 50 lean rows + summary
-    'admin_profiles_page': 100_000,
+# --- Standardized Web/API Payload Sizes (Bytes) ---
+PAYLOAD_BYTES: Dict[str, int] = {
+    'health_ping': 250,           # Lightweight heartbeat / status check
+    'auth_token': 1_200,          # OAuth / JWT token generation & headers
+    'resource_get': 12_000,       # Standard JSON entity / collection read
+    'resource_post': 3_500,       # JSON payload write / form submission
+    'resource_put': 2_500,        # Update entity payload
+    'dashboard_summary': 45_000,  # Aggregated analytics / metrics view
+    'bulk_export': 120_000,       # Large dataset / report serialization
 }
 
-# --- Requests per user flow ---
-REQUESTS_PER_FLOW = {
-    'login_only': [('login', 1)],
-    'browse_home': [('branding', 1), ('dashboard_guest', 1)],
-    'vote_session': [
-        ('login', 1),
-        ('vote_page_load', 4),  # me, status, election, candidates
-        ('vote_submit', 1),
-    ],
-    'vote_already_logged_in': [
-        ('vote_page_load', 4),
-        ('vote_submit', 1),
-    ],
-    'results_view': [('branding', 1), ('results_page', 2)],
-    'admin_voting_status': [('admin_voting_status_page', 1)],
+# --- Requests Per Generic User Flow ---
+REQUESTS_PER_FLOW: Dict[str, List[Tuple[str, int]]] = {
+    'auth_only': [('auth_token', 1)],
+    'health_check': [('health_ping', 2)],
+    'browse_catalog': [('resource_get', 3), ('health_ping', 1)],
+    'dashboard_view': [('auth_token', 1), ('dashboard_summary', 1), ('resource_get', 2)],
+    'transactional_write': [('auth_token', 1), ('resource_post', 2), ('resource_get', 1)],
+    'update_batch': [('resource_get', 2), ('resource_put', 2)],
+    'export_data': [('auth_token', 1), ('bulk_export', 1)],
 }
 
-# Throttle limits (per user or per IP — see notes in output)
-THROTTLE_PER_MINUTE = {
-    'login_submit': 10,   # ScopedUserThrottle on login (anonymous → per IP in DRF)
-    'vote_submit': 3,     # per authenticated user
-    'user_global': 1000 / 60.0,  # ~16.7 req/min per user
+# Categorization of endpoint computational weights
+ENDPOINT_WEIGHT: Dict[str, str] = {
+    'health_ping': 'light',
+    'auth_token': 'medium',
+    'resource_get': 'medium',
+    'resource_post': 'write',
+    'resource_put': 'write',
+    'dashboard_summary': 'heavy',
+    'bulk_export': 'heavy',
 }
 
-import os
-
-# Detect host system logical execution contexts (logical CPU thread count)
-DETECTED_CPU_THREADS = os.cpu_count() or 4
-_worker_factor = DETECTED_CPU_THREADS / 4.0
-
-# Server throughput assumptions (requests/second, sustained)
-SERVER_PROFILES = {
-    'dev_runserver': {
-        'label': 'Django runserver (dev, 1 process)',
-        'light_rps': 8,
-        'medium_rps': 4,
-        'heavy_rps': 2,
-        'write_rps': 3,
+# Server throughput profiles (requests/second sustained)
+SERVER_PROFILES: Dict[str, Dict[str, Any]] = {
+    'dev_single_worker': {
+        'label': 'Development Server (Single Worker / Thread)',
+        'light_rps': 25,
+        'medium_rps': 12,
+        'heavy_rps': 4,
+        'write_rps': 8,
     },
     'host_hardware': {
-        'label': f'Host System ({DETECTED_CPU_THREADS} Gunicorn workers matching {DETECTED_CPU_THREADS} logical CPU threads)',
-        'light_rps': round(60 * _worker_factor),
-        'medium_rps': round(25 * _worker_factor),
-        'heavy_rps': round(12 * _worker_factor),
-        'write_rps': round(20 * _worker_factor),
+        'label': f'Host Hardware ({DETECTED_CPU_CORES} Workers on {DETECTED_CPU_CORES} CPU Cores)',
+        'light_rps': round(120 * _worker_factor),
+        'medium_rps': round(60 * _worker_factor),
+        'heavy_rps': round(25 * _worker_factor),
+        'write_rps': round(40 * _worker_factor),
     },
-    'prod_small': {
-        'label': 'Gunicorn 4 workers + SQLite/Postgres (small VPS)',
-        'light_rps': 60,
-        'medium_rps': 25,
-        'heavy_rps': 12,
-        'write_rps': 20,
-    },
-    'prod_tuned': {
-        'label': 'Gunicorn 8 workers + Postgres + Redis cache',
-        'light_rps': 120,
+    'cloud_small': {
+        'label': 'Cloud Standard (2-4 Workers, 2GB RAM Container)',
+        'light_rps': 100,
         'medium_rps': 50,
-        'heavy_rps': 25,
-        'write_rps': 40,
+        'heavy_rps': 20,
+        'write_rps': 35,
     },
-}
-
-ENDPOINT_WEIGHT = {
-    'branding': 'light',
-    'login': 'write',
-    'dashboard_guest': 'medium',
-    'dashboard_auth_extra': 'light',
-    'vote_page_load': 'medium',
-    'vote_submit': 'write',
-    'results_page': 'heavy',
-    'my_votes': 'light',
-    'admin_voting_status_page': 'medium',
-    'admin_profiles_page': 'medium',
+    'cloud_scaled': {
+        'label': 'Cloud Production Cluster (8-16 Workers + Redis Cache)',
+        'light_rps': 350,
+        'medium_rps': 180,
+        'heavy_rps': 75,
+        'write_rps': 120,
+    },
 }
 
 
@@ -117,78 +105,74 @@ ENDPOINT_WEIGHT = {
 class ScenarioMix:
     name: str
     description: str
-    # fraction of concurrent users per flow (must sum to 1.0)
-    flows: Dict[str, float]
+    flows: Dict[str, float]  # fraction of users per flow (must sum to 1.0)
 
 
 SCENARIOS: Dict[str, ScenarioMix] = {
-    'login_rush': ScenarioMix(
-        name='login_rush',
-        description='Morning / poll open: most users logging in at once',
+    'balanced_api': ScenarioMix(
+        name='balanced_api',
+        description='Standard RESTful API workload with balanced read/write distribution',
         flows={
-            'login_only': 0.70,
-            'browse_home': 0.20,
-            'vote_already_logged_in': 0.10,
+            'browse_catalog': 0.40,
+            'dashboard_view': 0.25,
+            'transactional_write': 0.25,
+            'export_data': 0.10,
         },
     ),
-    'vote_rush': ScenarioMix(
-        name='vote_rush',
-        description='Peak voting hour: load ballot and submit',
+    'read_heavy': ScenarioMix(
+        name='read_heavy',
+        description='Read-dominated traffic (catalogs, dashboards, content feeds)',
         flows={
-            'vote_session': 0.55,
-            'vote_already_logged_in': 0.35,
-            'browse_home': 0.07,
-            'results_view': 0.03,
+            'browse_catalog': 0.60,
+            'dashboard_view': 0.30,
+            'export_data': 0.05,
+            'transactional_write': 0.05,
         },
     ),
-    'results_night': ScenarioMix(
-        name='results_night',
-        description='After polls close: everyone refreshing results',
+    'write_heavy': ScenarioMix(
+        name='write_heavy',
+        description='Transactional rush (batch data ingestion, checkout/submit spikes)',
         flows={
-            'results_view': 0.75,
-            'browse_home': 0.20,
-            'my_votes': 0.05,
+            'transactional_write': 0.55,
+            'update_batch': 0.25,
+            'dashboard_view': 0.15,
+            'browse_catalog': 0.05,
         },
     ),
-    'mixed_peak': ScenarioMix(
-        name='mixed_peak',
-        description='Realistic mix during an active election day',
+    'burst_ping': ScenarioMix(
+        name='burst_ping',
+        description='High-frequency heartbeat, webhook pings and auth token validation',
         flows={
-            'vote_already_logged_in': 0.40,
-            'vote_session': 0.25,
-            'browse_home': 0.15,
-            'login_only': 0.10,
-            'results_view': 0.05,
-            'admin_voting_status': 0.05,
+            'health_check': 0.65,
+            'auth_only': 0.25,
+            'browse_catalog': 0.10,
         },
     ),
 }
 
-# my_votes flow (small)
-REQUESTS_PER_FLOW['my_votes'] = [('my_votes', 1)]
-REQUESTS_PER_FLOW['admin_voting_status'] = [('admin_voting_status_page', 1)]
 
-
-def flow_stats(flow_key: str) -> Tuple[int, int]:
-    """Return (request_count, response_bytes) for one user completing the flow."""
+def calculate_flow_stats(flow_key: str) -> Tuple[int, int]:
+    """Return total (request_count, response_bytes) for one user executing a flow."""
     total_requests = 0
     total_bytes = 0
-    for payload_key, count in REQUESTS_PER_FLOW[flow_key]:
+    for payload_key, count in REQUESTS_PER_FLOW.get(flow_key, []):
         total_requests += count
-        total_bytes += PAYLOAD_BYTES[payload_key] * count
+        total_bytes += PAYLOAD_BYTES.get(payload_key, 1000) * count
     return total_requests, total_bytes
 
 
-def scenario_aggregate(
+def simulate_scenario(
     concurrent_users: int,
     scenario: ScenarioMix,
     burst_seconds: int = 120,
-) -> Dict:
+) -> Dict[str, Any]:
+    """Calculate aggregated traffic and resource demand for a scenario mix."""
     users_by_flow = {
         flow: int(round(concurrent_users * fraction))
         for flow, fraction in scenario.flows.items()
     }
-    # Fix rounding drift
+    
+    # Correct rounding drift
     drift = concurrent_users - sum(users_by_flow.values())
     if drift != 0:
         largest_flow = max(scenario.flows, key=scenario.flows.get)
@@ -196,298 +180,184 @@ def scenario_aggregate(
 
     total_requests = 0
     total_egress_bytes = 0
-    weighted_rps_demand = 0.0
 
     for flow, user_count in users_by_flow.items():
         if user_count <= 0:
             continue
-        req_per_user, bytes_per_user = flow_stats(flow)
+        req_per_user, bytes_per_user = calculate_flow_stats(flow)
         total_requests += user_count * req_per_user
         total_egress_bytes += user_count * bytes_per_user
 
-        for payload_key, count in REQUESTS_PER_FLOW[flow]:
-            weight = ENDPOINT_WEIGHT[payload_key]
-            profile_key = f'{weight}_rps'
-            for _ in range(user_count * count):
-                weighted_rps_demand += 1.0  # count endpoints; normalize below
-
-    arrival_rps = total_requests / max(burst_seconds, 1)
+    burst_seconds = max(burst_seconds, 1)
+    arrival_rps = total_requests / burst_seconds
 
     return {
         'users_by_flow': users_by_flow,
         'total_requests': total_requests,
         'total_egress_mb': total_egress_bytes / (1024 * 1024),
-        'total_ingress_mb': total_egress_bytes * 0.15 / (1024 * 1024),  # rough upload fraction
+        'total_ingress_mb': (total_egress_bytes * 0.15) / (1024 * 1024),
         'arrival_rps': arrival_rps,
         'burst_seconds': burst_seconds,
     }
 
 
-def capacity_for_scenario(scenario: ScenarioMix, server_key: str) -> float:
-    """Effective sustained RPS capacity for this scenario's request mix."""
+def calculate_effective_capacity(scenario: ScenarioMix, server_key: str) -> float:
+    """Calculate weighted sustained RPS capacity for the scenario request mix."""
     profile = SERVER_PROFILES[server_key]
-    weighted = 0.0
-    total_weight = 0.0
+    weighted_rps = 0.0
+    total_weights = 0.0
+
     for flow, fraction in scenario.flows.items():
-        for payload_key, count in REQUESTS_PER_FLOW[flow]:
-            weight_class = ENDPOINT_WEIGHT[payload_key]
-            rps = profile[f'{weight_class}_rps']
-            weighted += fraction * count * rps
-            total_weight += fraction * count
-    return weighted / total_weight if total_weight else profile['medium_rps']
+        for payload_key, count in REQUESTS_PER_FLOW.get(flow, []):
+            weight_class = ENDPOINT_WEIGHT.get(payload_key, 'medium')
+            rps = profile.get(f'{weight_class}_rps', profile['medium_rps'])
+            weighted_rps += fraction * count * rps
+            total_weights += fraction * count
+
+    return (weighted_rps / total_weights) if total_weights > 0 else float(profile['medium_rps'])
 
 
-def throttle_analysis(
-    concurrent_users: int,
-    scenario: ScenarioMix,
+def assess_reliability_state(util_pct: float) -> Tuple[str, str]:
+    """
+    Assess system reliability and degradation tier based on capacity utilization.
+    Returns (status_badge, description).
+    """
+    if util_pct < 60.0:
+        return 'OPTIMAL', 'Optimal performance — zero queueing, latency < 50ms'
+    elif util_pct < 85.0:
+        return 'HEALTHY', 'Stable throughput — minor queue buffers, latency < 150ms'
+    elif util_pct < 100.0:
+        return 'SATURATED', 'Capacity limit reached — elevated queuing, latency 200-500ms'
+    elif util_pct < 150.0:
+        return 'OVERLOADED', 'Bottleneck — request queue buildup, potential 504 timeouts'
+    else:
+        return 'CRITICAL', 'System overload — connection rejection, widespread timeouts & drops'
+
+
+def run_simulation(
+    scenarios: List[ScenarioMix],
+    servers: List[str],
+    concurrent_list: List[int],
     burst_seconds: int = 120,
-) -> List[str]:
-    notes = []
-    if scenario.name in ('login_rush', 'mixed_peak'):
-        # login: 10/min per IP — campus often shares NAT; warn below 100 concurrent same NAT
-        agg = scenario_aggregate(concurrent_users, scenario, burst_seconds)
-        logins = sum(
-            users
-            for flow, users in agg['users_by_flow'].items()
-            if flow in ('login_only', 'vote_session')
-        )
-        if logins > 50:
-            notes.append(
-                f'Login throttle: {THROTTLE_PER_MINUTE["login_submit"]:.0f}/min per IP — '
-                f'~{logins} login attempts in burst may hit 429 for users behind the same campus NAT.'
+    total_sample_users: int = 2000,
+):
+    """Execute and render the analytical concurrent load simulation."""
+    print("=" * 78)
+    print(" ⚡ UniversalTester: Concurrent Load & Reliability Simulation Engine")
+    print("=" * 78)
+    print(f" Sample Population : {total_sample_users:,} total simulated users")
+    print(f" Burst Window      : {burst_seconds}s (concurrent execution window)")
+    print(f" Concurrency Tiers : {', '.join(str(c) for c in concurrent_list)}")
+    print(f" Host Environment  : {DETECTED_CPU_CORES} CPU Cores / Logical Processors")
+    print("=" * 78)
+
+    for scenario in scenarios:
+        print(f"\n▶ Scenario: {scenario.name.upper()}")
+        print(f"  Description: {scenario.description}")
+        print()
+
+        header = f" {'Concurrent':>10} | {'% of Sample':>11} | {'Requests':>9} | {'Egress MB':>10} | {'Req/s':>8}"
+        print(header)
+        print(" " + "─" * (len(header) - 1))
+
+        for concurrent in concurrent_list:
+            agg = simulate_scenario(concurrent, scenario, burst_seconds)
+            pct = (concurrent / total_sample_users * 100.0) if total_sample_users > 0 else 0.0
+            print(
+                f" {concurrent:>10,} | {pct:>10.1f}% | {agg['total_requests']:>9,} | "
+                f"{agg['total_egress_mb']:>9.2f}MB | {agg['arrival_rps']:>8.1f}"
             )
 
-    vote_attempts = 0
-    agg = scenario_aggregate(concurrent_users, scenario, burst_seconds)
-    for flow, users in agg['users_by_flow'].items():
-        if 'vote' in flow:
-            vote_attempts += users
-    if vote_attempts > 0:
-        notes.append(
-            f'Vote submit throttle: {THROTTLE_PER_MINUTE["vote_submit"]:.0f}/min per user — '
-            'safe for one ballot each; only affects double-click / retry spam.'
-        )
-    return notes
-
-
-def utilization_pct(arrival_rps: float, capacity_rps: float) -> float:
-    if capacity_rps <= 0:
-        return 999.0
-    return (arrival_rps / capacity_rps) * 100.0
-
-
-def predict_experience(util_pct: float) -> str:
-    if util_pct < 50:
-        return 'Smooth - low queueing'
-    if util_pct < 80:
-        return 'Good - slight slowdown possible'
-    if util_pct < 100:
-        return 'Busy - noticeable waits (2-5s on heavy pages)'
-    if util_pct < 150:
-        return 'Overloaded - queues; timeouts likely on dev server'
-    return 'Severe - sustained failures/timeouts without scaling'
-
-
-def percent_of_total(concurrent: int, total_students: int) -> float:
-    if total_students <= 0:
-        return 0.0
-    return (concurrent / total_students) * 100.0
-
-
-class Command(BaseCommand):
-    help = 'Simulate concurrent student load (requests, bandwidth, server capacity).'
-
-    def add_arguments(self, parser):
-        parser.add_argument(
-            '--total-students',
-            type=int,
-            default=2000,
-            help='Total enrolled students in sample (default: 2000)',
-        )
-        parser.add_argument(
-            '--concurrent',
-            type=str,
-            default='25,50,100,200,500,1000,2000',
-            help='Comma-separated concurrent user counts to simulate',
-        )
-        parser.add_argument(
-            '--scenario',
-            type=str,
-            default='all',
-            choices=['all', 'login_rush', 'vote_rush', 'results_night', 'mixed_peak'],
-            help='Traffic pattern (default: all scenarios)',
-        )
-        parser.add_argument(
-            '--server',
-            type=str,
-            default='all',
-            choices=['all', 'dev_runserver', 'host_hardware', 'prod_small', 'prod_tuned'],
-            help='Server capacity profile',
-        )
-        parser.add_argument(
-            '--burst-seconds',
-            type=int,
-            default=120,
-            help='Seconds over which concurrent users finish their flows (default: 120)',
-        )
-
-    def handle(self, *args, **options):
-        total_students = options['total_students']
-        raw_concurrent = [int(x.strip()) for x in options['concurrent'].split(',') if x.strip()]
-        
-        # If user specified a single target (e.g. 50, 100, 500, 1000, 2400),
-        # automatically generate progressive milestone intervals leading up to that target
-        if len(raw_concurrent) == 1:
-            target = raw_concurrent[0]
-            milestones = [10, 25, 50, 100, 200, 500, 1000, 2000, 3000, 4000, 5000]
-            curve = [m for m in milestones if m < target]
-            if not curve or curve[-1] != target:
-                curve.append(target)
-            concurrent_list = sorted(list(set(curve)))
-        else:
-            concurrent_list = sorted(raw_concurrent)
-
-        # Adapt sample population if requested concurrency exceeds default 2,000
-        max_requested = max(concurrent_list) if concurrent_list else 2000
-        if max_requested > total_students:
-            total_students = max_requested
-
-        scenario_filter = options['scenario']
-        server_filter = options['server']
-        burst_seconds = options['burst_seconds']
-
-        scenarios = (
-            [SCENARIOS[scenario_filter]]
-            if scenario_filter != 'all'
-            else list(SCENARIOS.values())
-        )
-        servers = (
-            [server_filter]
-            if server_filter != 'all'
-            else list(SERVER_PROFILES.keys())
-        )
-
-        self.stdout.write(self.style.SUCCESS('=' * 72))
-        self.stdout.write(self.style.SUCCESS('E-Botar concurrent load simulation'))
-        self.stdout.write(self.style.SUCCESS('=' * 72))
-        self.stdout.write(
-            f'\nSample population: {total_students:,} students\n'
-            f'Burst window: {burst_seconds}s (users active at the same time)\n'
-            f'Concurrent counts: {", ".join(str(c) for c in concurrent_list)}\n'
-            f'Detected host CPU threads: {DETECTED_CPU_THREADS} (simulating {DETECTED_CPU_THREADS} Gunicorn workers)\n'
-        )
-        self.stdout.write(
-            '\nAssumptions: paginated admin lists (50 rows); vote page uses full candidate '
-            'payload; throttles from settings.py (login 10/min/IP, vote 3/min/user).\n'
-        )
-
-        for scenario in scenarios:
-            self.stdout.write(self.style.WARNING(f'\n--- Scenario: {scenario.name} ---'))
-            self.stdout.write(f'{scenario.description}\n')
-
-            header = (
-                f'{"Concurrent":>10} | {"% of sample":>10} | {"Requests":>9} | '
-                f'{"Egress MB":>10} | {"Req/s":>7}'
-            )
-            self.stdout.write(header)
-            self.stdout.write('-' * len(header))
+        print("\n  Hardware Sizing & Reliability Thresholds:")
+        for server_key in servers:
+            profile = SERVER_PROFILES[server_key]
+            cap_rps = calculate_effective_capacity(scenario, server_key)
+            print(f"   • {profile['label']} (Capacity: ~{cap_rps:.0f} req/s)")
 
             for concurrent in concurrent_list:
-                agg = scenario_aggregate(concurrent, scenario, burst_seconds)
-                arrival_rps = agg['total_requests'] / burst_seconds
-                pct = percent_of_total(concurrent, total_students)
-                self.stdout.write(
-                    f'{concurrent:>10,} | {pct:>9.1f}% | {agg["total_requests"]:>9,} | '
-                    f'{agg["total_egress_mb"]:>10.1f} | {arrival_rps:>7.1f}'
-                )
+                agg = simulate_scenario(concurrent, scenario, burst_seconds)
+                util = (agg['arrival_rps'] / cap_rps) * 100.0 if cap_rps > 0 else 999.0
+                status, desc = assess_reliability_state(util)
+                print(f"     └─ {concurrent:>5,} users ──► Util: {util:>5.0f}% [{status:<10}] {desc}")
 
-            for server_key in servers:
-                profile = SERVER_PROFILES[server_key]
-                cap = capacity_for_scenario(scenario, server_key)
-                self.stdout.write(f'\n  Server: {profile["label"]} (~{cap:.0f} req/s capacity for this mix)')
-                for concurrent in concurrent_list:
-                    agg = scenario_aggregate(concurrent, scenario, burst_seconds)
-                    arrival_rps = agg['total_requests'] / burst_seconds
-                    util = utilization_pct(arrival_rps, cap)
-                    experience = predict_experience(util)
-                    self.stdout.write(
-                        f'    {concurrent:>6,} users -> util {util:>5.0f}% - {experience}'
-                    )
-
-            notes = []
-            for concurrent in concurrent_list:
-                notes.extend(throttle_analysis(concurrent, scenario, burst_seconds))
-            if notes:
-                self.stdout.write('\n  Throttle / ops notes:')
-                for note in dict.fromkeys(notes):
-                    self.stdout.write(f'    - {note}')
-
-        self.stdout.write(self.style.SUCCESS('\n' + '=' * 72))
-        self.stdout.write(
-            '\nSizing reference:\n'
-            '  - 2k campus / 200-500 concurrent: current stack + pagination is workable\n'
-            '  - 4-8k campus / 2-4k concurrent vote open: needs horizontal scale + caching (see below)\n'
-            '  - vote_rush at 4k concurrent ~= 176 req/s and ~1.2 GB JSON egress per 2-min burst\n'
-        )
-        self.stdout.write(self.style.SUCCESS('=' * 72))
+    print("\n" + "=" * 78)
+    print(" 💡 Sizing & Reliability Guidance:")
+    print("  • Small / Single-Worker Server : Ideal for dev & testing up to ~100 concurrent.")
+    print("  • Multi-Worker Host Server    : Sustains 500-1,000 concurrent with moderate queuing.")
+    print("  • Scaled Cloud Cluster        : Recommended for peak events exceeding 1,000+ users.")
+    print("=" * 78 + "\n")
 
 
-if __name__ == '__main__':
-    import argparse
-    import sys
-
+def main():
     parser = argparse.ArgumentParser(
-        description='Analytical concurrent-load simulation for E-Botar.'
+        description='UniversalTester Concurrency & Reliability Simulator'
     )
     parser.add_argument(
         '--scenario',
-        choices=['all', 'vote_rush', 'login_rush', 'results_view'],
-        default='vote_rush',
-        help='Run only this scenario (default: vote_rush)',
+        choices=['all', 'balanced_api', 'read_heavy', 'write_heavy', 'burst_ping'],
+        default='balanced_api',
+        help='Traffic pattern (default: balanced_api)',
     )
     parser.add_argument(
         '--server',
-        choices=['all', 'dev_runserver', 'host_hardware', 'prod_small', 'prod_tuned'],
+        choices=['all', 'dev_single_worker', 'host_hardware', 'cloud_small', 'cloud_scaled'],
         default='all',
-        help='Filter by server profile (default: all)',
-    )
-    parser.add_argument(
-        '--total-students',
-        type=int,
-        default=2000,
-        help='Campus population benchmark (default: 2000)',
+        help='Server capacity profile (default: all)',
     )
     parser.add_argument(
         '--concurrent',
         type=str,
-        default='25,50,100,200,500,1000,2000',
-        help='Comma-separated concurrent counts',
+        default='50,100,500,1000',
+        help='Comma-separated concurrent user volumes to simulate',
     )
     parser.add_argument(
         '--burst-seconds',
         type=int,
         default=120,
-        help='Seconds over which concurrent users act (default: 120)',
+        help='Duration in seconds of the peak burst window (default: 120)',
     )
+    parser.add_argument(
+        '--total-users',
+        type=int,
+        default=2000,
+        help='Total user population sample (default: 2000)',
+    )
+
     args = parser.parse_args()
 
-    class StandaloneStdout:
-        def write(self, msg=''):
-            print(msg)
+    # Parse concurrency list
+    raw_concurrent = [int(x.strip()) for x in args.concurrent.split(',') if x.strip()]
+    if len(raw_concurrent) == 1:
+        target = raw_concurrent[0]
+        milestones = [10, 25, 50, 100, 200, 500, 1000, 2000, 3000, 5000]
+        curve = [m for m in milestones if m < target]
+        if not curve or curve[-1] != target:
+            curve.append(target)
+        concurrent_list = sorted(list(set(curve)))
+    else:
+        concurrent_list = sorted(raw_concurrent)
 
-    class StandaloneStyle:
-        def WARNING(self, msg):
-            return msg
-        def SUCCESS(self, msg):
-            return msg
+    total_users = max(args.total_users, max(concurrent_list) if concurrent_list else 2000)
 
-    cmd = Command()
-    cmd.stdout = StandaloneStdout()
-    cmd.style = StandaloneStyle()
-    cmd.handle(
-        scenario=args.scenario,
-        server=args.server,
-        total_students=args.total_students,
-        concurrent=args.concurrent,
-        burst_seconds=args.burst_seconds,
+    scenarios = (
+        [SCENARIOS[args.scenario]]
+        if args.scenario != 'all'
+        else list(SCENARIOS.values())
     )
+    servers = (
+        [args.server]
+        if args.server != 'all'
+        else list(SERVER_PROFILES.keys())
+    )
+
+    run_simulation(
+        scenarios=scenarios,
+        servers=servers,
+        concurrent_list=concurrent_list,
+        burst_seconds=args.burst_seconds,
+        total_sample_users=total_users,
+    )
+
+
+if __name__ == '__main__':
+    main()

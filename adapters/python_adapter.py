@@ -321,7 +321,7 @@ class PythonAdapter(BaseAdapter):
             return TestResult.unavailable(suite_name, reason)
 
         # Configurable scenario with default to comprehensive 'all'
-        scenario = self.project_config.get('simulation_scenario', 'all')
+        scenario = self.config.get('simulation_scenario', 'all')
         cmd = [
             self.python_bin,
             sim_script,
