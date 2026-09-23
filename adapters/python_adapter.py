@@ -313,7 +313,7 @@ class PythonAdapter(BaseAdapter):
         """Run analytical concurrent load simulation across configurable traffic profiles."""
         suite_name = f"Concurrency Simulation ({concurrent_users} Users)"
         print_section_header(f"Running Concurrency Simulation ({concurrent_users} Users) for {self.name}")
-        sim_script = os.path.join(self.performance_dir, 'simulate_concurrent_load.py')
+        sim_script = os.path.join(self.performance_dir, 'reliability_tester.py')
 
         if not os.path.exists(sim_script):
             reason = f"Simulation script not found: {sim_script}"
@@ -321,7 +321,7 @@ class PythonAdapter(BaseAdapter):
             return TestResult.unavailable(suite_name, reason)
 
         # Configurable scenario with default to comprehensive 'all'
-        scenario = self.project_config.get('simulation_scenario', 'all')
+        scenario = self.config.get('simulation_scenario', 'all')
         cmd = [
             self.python_bin,
             sim_script,
@@ -334,14 +334,14 @@ class PythonAdapter(BaseAdapter):
     def run_algorithms_test(self) -> TestResult:
         """Run algorithm verification and execution speed tests."""
         print_section_header(f"Running Algorithm Benchmarks for {self.name}")
-        algo_script = os.path.join(self.performance_dir, 'test_algorithms.py')
+        algo_script = os.path.join(self.performance_dir, 'algorithm_tester.py')
         cmd = [self.python_bin, algo_script]
         return self._run_process(cmd, cwd=self.project_path, label=f"{self.name} Algorithm Benchmarks")
 
     def run_benchmarks(self) -> TestResult:
         """Run computational stress and throughput benchmarks."""
         print_section_header(f"Running Performance Benchmarks for {self.name}")
-        algo_script = os.path.join(self.performance_dir, 'test_algorithms.py')
+        algo_script = os.path.join(self.performance_dir, 'algorithm_tester.py')
         cmd = [self.python_bin, algo_script]
         return self._run_process(cmd, cwd=self.project_path, label=f"{self.name} Performance Benchmark")
 

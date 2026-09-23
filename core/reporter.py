@@ -8,33 +8,19 @@ import sys
 import time
 from typing import Dict, List, Any, Optional
 
-from core.ui import Colors, get_terminal_width, print_divider
+from core.ui import Colors, get_terminal_width, print_divider, visible_len, pad_left, pad_center
 
 if hasattr(sys.stdout, 'reconfigure'):
     try:
         sys.stdout.reconfigure(encoding='utf-8')
     except Exception:
+        # Reconfiguration may fail on non-text/redirected streams or test runners
         pass
 
-
-def _visible_len(s: str) -> int:
-    """Return the visible string length excluding ANSI escape sequences."""
-    return len(re.sub(r'\033\[[0-9;]*m', '', s))
-
-
-def _pad_left(s: str, width: int) -> str:
-    """Pad string on the right so it aligns to the left within visible width."""
-    v = _visible_len(s)
-    return s + (' ' * max(width - v, 0))
-
-
-def _pad_center(s: str, width: int) -> str:
-    """Center string based on its visible width."""
-    v = _visible_len(s)
-    pad = max(width - v, 0)
-    left = pad // 2
-    right = pad - left
-    return (' ' * left) + s + (' ' * right)
+# Aliases for module backward-compatibility
+_visible_len = visible_len
+_pad_left = pad_left
+_pad_center = pad_center
 
 
 class AnalyticalTestReporter:
