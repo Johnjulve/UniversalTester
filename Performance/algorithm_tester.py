@@ -20,6 +20,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     try:
         sys.stdout.reconfigure(encoding='utf-8')
     except Exception:
+        # Reconfiguration may fail on non-text/redirected streams or test runners
         pass
 
 # Add parent directory for ui imports if available
@@ -29,8 +30,13 @@ if _PARENT_DIR not in sys.path:
     sys.path.insert(0, _PARENT_DIR)
 
 try:
-    from core.ui import Colors, get_terminal_width, print_divider
+    from core.ui import Colors, print_divider, visible_len, pad_left, pad_center
+    _visible_len = visible_len
+    _pad_left = pad_left
+    _pad_center = pad_center
 except ImportError:
+    import re
+
     class Colors:
         RESET = '\033[0m'
         BOLD = '\033[1m'
@@ -46,29 +52,25 @@ except ImportError:
         GRAY = '\033[90m'
         WHITE = '\033[97m'
 
-    def get_terminal_width() -> int:
-        return 80
-
     def print_divider():
         print(f"{Colors.GRAY}{'─' * 75}{Colors.RESET}")
 
+    _ANSI_RE = re.compile(r'\033\[[0-9;]*m')
 
-def _visible_len(s: str) -> int:
-    import re
-    return len(re.sub(r'\033\[[0-9;]*m', '', s))
+    def _visible_len(s: str) -> int:
+        return len(_ANSI_RE.sub('', s))
 
+    def _pad_left(s: str, width: int) -> str:
+        v = _visible_len(s)
+        return s + (' ' * max(width - v, 0))
 
-def _pad_left(s: str, width: int) -> str:
-    v = _visible_len(s)
-    return s + (' ' * max(width - v, 0))
+    def _pad_center(s: str, width: int) -> str:
+        v = _visible_len(s)
+        pad = max(width - v, 0)
+        left = pad // 2
+        right = pad - left
+        return (' ' * left) + s + (' ' * right)
 
-
-def _pad_center(s: str, width: int) -> str:
-    v = _visible_len(s)
-    pad = max(width - v, 0)
-    left = pad // 2
-    right = pad - left
-    return (' ' * left) + s + (' ' * right)
 
 
 # --- Core Algorithms ---

@@ -5,10 +5,44 @@ Supports Windows terminal with ANSI color fallback and box drawing.
 import os
 import sys
 import shutil
+import re
 
 # Ensure UTF-8 output on Windows terminals
 if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8')
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        # Reconfiguration may fail on non-text/redirected streams or test runners
+        pass
+
+# Precompiled ANSI regex hoisted for performance across repeated formatting calls
+_ANSI_PATTERN = re.compile(r'\033\[[0-9;]*m')
+
+
+def strip_ansi(s: str) -> str:
+    """Remove ANSI escape sequences from a string."""
+    return _ANSI_PATTERN.sub('', s)
+
+
+def visible_len(s: str) -> int:
+    """Return visible string length excluding ANSI escape sequences."""
+    return len(strip_ansi(s))
+
+
+def pad_left(s: str, width: int) -> str:
+    """Pad string on the right so it aligns to the left within visible width."""
+    v = visible_len(s)
+    return s + (' ' * max(width - v, 0))
+
+
+def pad_center(s: str, width: int) -> str:
+    """Center string based on its visible width."""
+    v = visible_len(s)
+    pad = max(width - v, 0)
+    left = pad // 2
+    right = pad - left
+    return (' ' * left) + s + (' ' * right)
+
 
 # ANSI color tokens
 class Colors:
