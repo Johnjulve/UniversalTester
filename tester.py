@@ -126,6 +126,10 @@ def select_project(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             error_msg = f"Invalid option: '{choice}'. Please select from the menu above."
 
 
+from core.orchestrator import TestOrchestrator
+import argparse
+
+
 def select_test_type(project_name: str) -> Optional[str]:
     """Prompt user to select test or simulation type."""
     error_msg = ""
@@ -138,19 +142,20 @@ def select_test_type(project_name: str) -> Optional[str]:
             error_msg = ""
             
         print(f"{Colors.DIM}Target Project: {Colors.BOLD}{Colors.BRIGHT_CYAN}{project_name}{Colors.RESET}\n")
-        print_prompt_title("What type of Test/Simulation:")
+        print_prompt_title("Select Testing Pillar to Execute:")
         
-        print_menu_option("1", "Ecosystem Unit & Component Tests", "Delegates to project runner (pytest / vitest / jest)")
-        print_menu_option("2", "Native Algorithm Benchmark", "Pure CS stress test (Quicksort, Binary Search, SHA-256)")
-        print_menu_option("3", "Native Concurrency Simulation", "Analytical peak traffic & capacity model")
-        print_menu_option("4", "Native System & Health Check", "Host CPU, memory pressure, runtime environment")
-        print_menu_option("5", "Full Comprehensive Suite", "Complete run: Unit Tests + Algorithms + Simulation")
+        print_menu_option("1", "Adaptive Tester (Unit & Component Tests)", "Delegates to project runner (pytest / vitest / jest)")
+        print_menu_option("2", "Algorithm Tester (Correctness & Edge Cases)", "Pure CS correctness assertions & test vectors")
+        print_menu_option("3", "Performance Tester (Speed & Memory Profiling)", "CPU latency benchmarks & tracemalloc memory profiling")
+        print_menu_option("4", "Reliability Tester (Concurrency & Load Capacity)", "Analytical peak traffic simulation & degradation envelope")
+        print_menu_option("5", "Security Tester (Vulnerabilities & Dependencies)", "Static AST vulnerability scan & ecosystem audit")
+        print_menu_option("6", "Full 5-Pillar Assessment (Comprehensive Suite)", "Complete run across all 5 official testing pillars")
         print_menu_option("0", "Back to Project Selection")
         print()
         
         choice = get_user_input(f"{os.getcwd()}> ")
         
-        if choice in ("0", "1", "2", "3", "4", "5"):
+        if choice in ("0", "1", "2", "3", "4", "5", "6"):
             return choice
         else:
             error_msg = f"Invalid option: '{choice}'. Please select from the menu above."
@@ -203,7 +208,7 @@ def select_concurrency() -> Optional[int]:
 
 
 def main():
-    """Main terminal loop."""
+    """Main interactive terminal loop."""
     config = load_config()
     
     while True:
@@ -214,6 +219,7 @@ def main():
             sys.exit(0)
             
         adapter = get_adapter(project)
+        orchestrator = TestOrchestrator(adapter)
         
         while True:
             # Step 2: Test Type Selection
@@ -225,24 +231,21 @@ def main():
             clear_screen()
             
             if test_type == "1":
-                # Ecosystem Unit & Component Tests
-                adapter.run_components_test()
+                orchestrator.run_adaptive()
             elif test_type == "2":
-                # Native Algorithm Benchmark
-                adapter.run_algorithms_test()
+                orchestrator.run_algorithms()
             elif test_type == "3":
-                # Native Concurrency Simulation
+                orchestrator.run_performance()
+            elif test_type == "4":
                 users = select_concurrency()
                 if users is None:
                     continue  # Back to test selection
                 clear_screen()
-                adapter.run_simulation_test(users)
-            elif test_type == "4":
-                # Native System & Health Check
-                adapter.run_health_check()
+                orchestrator.run_reliability(users)
             elif test_type == "5":
-                # Full Comprehensive Suite
-                adapter.run_overall_test()
+                orchestrator.run_security()
+            elif test_type == "6":
+                orchestrator.run_all_pillars(concurrent_users=500)
                 
             print_divider()
             again = get_user_input("\nPress Enter to return to menu (or 'q' to quit): ").strip().lower()
@@ -251,9 +254,87 @@ def main():
                 sys.exit(0)
 
 
-if __name__ == '__main__':
+def run_cli():
+    """Parse CLI arguments and execute non-interactive subcommand or launch interactive menu."""
+    parser = argparse.ArgumentParser(
+        description="⚡ UNIVERSAL TEST & SIMULATION ENGINE",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        'pillar',
+        nargs='?',
+        choices=['adaptive', 'algo', 'algorithms', 'perf', 'performance', 'reliability', 'rel', 'security', 'sec', 'all'],
+        help="Direct testing pillar to execute non-interactively"
+    )
+    parser.add_argument(
+        '--project', '-p',
+        type=str,
+        default=None,
+        help="Target project ID from tester_config.json or absolute filesystem path"
+    )
+    parser.add_argument(
+        '--concurrent', '-c',
+        type=int,
+        default=500,
+        help="Concurrent simulated users for reliability testing (default: 500)"
+    )
+
+    args = parser.parse_args()
+
+    # Non-interactive CLI dispatch
+    if args.pillar:
+        config = load_config()
+        projects = config.get("projects", {})
+
+        target_project = None
+        if args.project:
+            if args.project in projects:
+                target_project = projects[args.project]
+            elif os.path.exists(args.project):
+                from adapters import detect_adapter
+                norm_p = os.path.abspath(args.project)
+                detected = detect_adapter(norm_p)
+                target_project = {
+                    "id": "cli_custom",
+                    "name": os.path.basename(norm_p) or "CLI Target",
+                    "type": detected.adapter_id() if detected else "python",
+                    "path": norm_p
+                }
+            else:
+                print(f"{Colors.BRIGHT_RED}Error: Project '{args.project}' not found in configuration or filesystem.{Colors.RESET}")
+                sys.exit(1)
+        elif projects:
+            # Default to first configured project
+            first_key = list(projects.keys())[0]
+            target_project = projects[first_key]
+        else:
+            # Fallback to current working directory
+            target_project = {
+                "id": "cwd",
+                "name": os.path.basename(os.getcwd()) or "Local Project",
+                "type": "python",
+                "path": os.getcwd()
+            }
+
+        adapter = get_adapter(target_project)
+        orchestrator = TestOrchestrator(adapter)
+
+        try:
+            result = orchestrator.dispatch(args.pillar, concurrent_users=args.concurrent)
+            # Exit code 0 if tests passed or capability is unavailable; 1 on failure
+            sys.exit(0 if (result.is_success or result.is_unavailable) else 1)
+        except Exception as e:
+            print(f"\n{Colors.BRIGHT_RED}Error during orchestrator dispatch: {e}{Colors.RESET}\n")
+            sys.exit(1)
+
+    # Interactive terminal loop
     try:
         main()
     except (KeyboardInterrupt, EOFError):
         print(f"\n\n{Colors.YELLOW}Operation cancelled by user.{Colors.RESET}")
         sys.exit(0)
+
+
+if __name__ == '__main__':
+    run_cli()
+
