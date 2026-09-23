@@ -74,7 +74,7 @@ class GoAdapter(BaseAdapter):
 
     def run_algorithms_test(self) -> bool:
         # Executes native CS benchmarks
-        from Performance.test_algorithms import run_benchmarks
+        from Performance.algorithm_tester import run_benchmarks
         return run_benchmarks()
 
     def run_overall_test(self) -> bool:

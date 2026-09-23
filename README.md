@@ -87,8 +87,8 @@ UniversalTester/
 │   ├── django_adapter.py         <-- Django & DRF test execution & concurrency simulations
 │   └── node_adapter.py           <-- Node.js / React / Vite / Next.js adapter
 └── Performance/
-    ├── test_algorithms.py        <-- Pure Universal CS stress benchmarks (Option A)
-    └── simulate_concurrent_load.py <-- Analytical peak traffic & saturation model
+    ├── algorithm_tester.py       <-- Algorithmic correctness assertions & peak memory benchmarks
+    └── reliability_tester.py     <-- Analytical peak traffic & reliability saturation model
 ```
 
 ---

@@ -171,7 +171,7 @@ class NodeAdapter(BaseAdapter):
     def run_algorithms_test(self) -> TestResult:
         """Run the universal CS algorithm benchmarks."""
         print_section_header(f"Running Algorithm Benchmarks for {self.name}")
-        algo_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Performance', 'test_algorithms.py'))
+        algo_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Performance', 'algorithm_tester.py'))
         start_time = time.time()
         try:
             res = subprocess.run([sys.executable, algo_script])

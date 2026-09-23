@@ -20,7 +20,7 @@ _PROJECT_ROOT = os.path.abspath(os.path.join(_CURRENT_DIR, '..'))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
-from Performance.simulate_concurrent_load import (
+from Performance.reliability_tester import (
     SCENARIOS,
     SERVER_PROFILES,
     calculate_flow_stats,
@@ -28,7 +28,7 @@ from Performance.simulate_concurrent_load import (
     calculate_effective_capacity,
     assess_reliability_state,
 )
-from Performance.test_algorithms import (
+from Performance.algorithm_tester import (
     quicksort,
     mergesort,
     binary_search,

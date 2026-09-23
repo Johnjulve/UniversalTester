@@ -24,38 +24,38 @@ This directory is an independent testing module operating completely on Python s
 
 ```text
 Performance/
-├── README.md                     <-- Performance criteria, benchmarks & execution guide
-├── simulate_concurrent_load.py   <-- Analytical concurrent load & reliability simulation model
-└── test_algorithms.py            <-- Algorithmic correctness assertions & speed benchmarks
+├── README.md              <-- Performance criteria, benchmarks & execution guide
+├── reliability_tester.py  <-- Analytical concurrent load & reliability simulation model
+└── algorithm_tester.py    <-- Algorithmic correctness assertions & speed benchmarks
 ```
 
 ---
 
 ## 🚀 Execution Guide
 
-### 1. Analytical Concurrency & Reliability Simulation (`simulate_concurrent_load.py`)
+### 1. Analytical Concurrency & Reliability Simulation (`reliability_tester.py`)
 Simulates traffic patterns and assesses reliability thresholds without requiring a running backend server:
 
 ```bash
 # Default balanced API run with 50, 100, 500, 1000 concurrent users
-python Performance/simulate_concurrent_load.py
+python Performance/reliability_tester.py
 
 # Custom traffic scenario (balanced_api, read_heavy, write_heavy, burst_ping, or all)
-python Performance/simulate_concurrent_load.py --scenario read_heavy --concurrent 500
+python Performance/reliability_tester.py --scenario read_heavy --concurrent 500
 
 # Specify custom concurrency counts and burst window (seconds)
-python Performance/simulate_concurrent_load.py --concurrent 100,500,2000 --burst-seconds 60
+python Performance/reliability_tester.py --concurrent 100,500,2000 --burst-seconds 60
 
 # Filter by target server profile (dev_single_worker, host_hardware, cloud_small, cloud_scaled)
-python Performance/simulate_concurrent_load.py --server host_hardware --concurrent 1000
+python Performance/reliability_tester.py --server host_hardware --concurrent 1000
 ```
 
-### 2. Algorithmic Correctness & Speed Benchmark (`test_algorithms.py`)
+### 2. Algorithmic Correctness & Speed Benchmark (`algorithm_tester.py`)
 Runs mathematical benchmarks and correctness assertions across standard computer science workloads:
 - Quicksort & Binary Search (lookups & sorting stability)
 - SHA-256 Hashing & Digest Throughput
 - Memory Pressure & Cache Profiling
 
 ```bash
-python Performance/test_algorithms.py
+python Performance/algorithm_tester.py
 ```

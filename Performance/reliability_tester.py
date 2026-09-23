@@ -12,8 +12,8 @@ Supports standard traffic profiles:
   - burst_ping   : High-frequency polling, health checks & telemetry pings
 
 Run:
-  python Performance/simulate_concurrent_load.py --scenario balanced_api --concurrent 500
-  python Performance/simulate_concurrent_load.py --concurrent 50,100,500,1000,2000
+  python Performance/reliability_tester.py --scenario balanced_api --concurrent 500
+  python Performance/reliability_tester.py --concurrent 50,100,500,1000,2000
 """
 from __future__ import annotations
 
