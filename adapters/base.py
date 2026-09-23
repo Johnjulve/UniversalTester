@@ -20,6 +20,7 @@ class Capability:
     ALGORITHMS = "algorithms"
     BENCHMARKS = "benchmarks"
     HEALTH = "health"
+    SECURITY = "security"
 
 
 class BaseAdapter(ABC):
@@ -56,7 +57,7 @@ class BaseAdapter(ABC):
 
     def supported_capabilities(self) -> Set[str]:
         """Return the set of capabilities supported by this adapter for the current project."""
-        return {Capability.COMPONENTS, Capability.HEALTH}
+        return {Capability.COMPONENTS, Capability.HEALTH, Capability.SECURITY}
 
     def has_capability(self, capability: str) -> bool:
         """Helper to test whether a capability is supported."""
@@ -86,6 +87,11 @@ class BaseAdapter(ABC):
     def run_algorithms_test(self) -> TestResult:
         """Run algorithm verification & performance checks."""
         pass
+
+    def run_security_scan(self) -> TestResult:
+        """Run static code security scanner and ecosystem vulnerability checks."""
+        from core.security import run_security_assessment
+        return run_security_assessment(self.project_path, self.name)
 
     def run_health_check(self) -> TestResult:
         """Run universal system, host resource, and environment health check."""

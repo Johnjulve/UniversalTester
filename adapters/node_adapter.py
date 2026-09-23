@@ -46,6 +46,7 @@ class NodeAdapter(BaseAdapter):
             Capability.COMPONENTS,
             Capability.ALGORITHMS,
             Capability.HEALTH,
+            Capability.SECURITY,
         }
 
     def __init__(self, project_config: Dict[str, Any]):

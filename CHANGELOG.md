@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Lean Security Tester**: Built `core/security.py` featuring an AST-based static vulnerability scanner (detecting hardcoded secrets, SQL injection patterns, dangerous `eval`/`exec`/`os.system`, and insecure shell execution) and ecosystem dependency audit delegation (`npm audit`, `pip-audit`, `safety`).
+- **Master 5-Pillar Test Orchestrator**: Built `core/orchestrator.py` coordinating the 5 official testing pillars (Adaptive, Algorithm, Performance, Reliability, Security) and rendering consolidated overall system health scorecards.
+- **Scriptable CLI Subcommand Dispatch**: Updated `tester.py` to support direct, non-interactive CLI subcommand invocations (`python tester.py [adaptive|algo|perf|reliability|security|all]`) with exit code signaling for CI/CD pipelines.
+- **Phase 5 Automated Verification Suite**: Added `tests/test_phase_5.py` covering static vulnerability detection, placeholder exclusions, zero false-positives on clean code, capability integration, and orchestrator dispatch routing.
 - **Universal Python Adapter**: Created `adapters/python_adapter.py` providing dynamic runner detection across Django `manage.py test`, `pytest`, and `unittest discover`, configurable simulation scenario dispatch, and structured reporting.
 - **Smart Runner Detection in Node Adapter**: Upgraded `adapters/node_adapter.py` to inspect `package.json.scripts`, gracefully returning `TestResult.unavailable()` when tests are omitted, and auto-detecting Vitest (`--run`) vs Jest (`--watchAll=false`).
 - **Consolidated Multi-Suite Reporter**: Added `render_overall_summary()` in `core/reporter.py` to render ANSI-aligned overall summary tables that handle unavailable capabilities without unfairly degrading overall system health grades.

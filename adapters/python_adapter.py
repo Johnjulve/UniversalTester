@@ -50,6 +50,7 @@ class PythonAdapter(BaseAdapter):
             Capability.SIMULATION,
             Capability.BENCHMARKS,
             Capability.HEALTH,
+            Capability.SECURITY,
         }
 
     def __init__(self, project_config: Dict[str, Any]):
