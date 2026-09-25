@@ -6,6 +6,7 @@ structured module trees, analytical metrics tables, and quality scores.
 import re
 import sys
 import time
+import os
 from typing import Dict, List, Any, Optional
 
 from core.ui import Colors, get_terminal_width, print_divider, visible_len, pad_left, pad_center
