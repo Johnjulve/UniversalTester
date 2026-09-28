@@ -1,8 +1,8 @@
 # ⚡ Performance, Concurrency & Reliability Testing Engine
 
-Framework-agnostic performance benchmarks, computational stress tests, and analytical concurrent-load simulations designed to evaluate web services, REST APIs, and core algorithms.
+Framework-agnostic performance benchmarks, computational stress tests, cross-language algorithm comparisons, and analytical concurrent-load simulations designed to evaluate web services, REST APIs, and core algorithms.
 
-This directory is an independent testing module operating completely on Python standard library primitives.
+This directory is an independent testing module operating completely on Python standard library primitives with pluggable cross-language runners in Node.js and Dart.
 
 ---
 
@@ -17,6 +17,10 @@ This directory is an independent testing module operating completely on Python s
 3. **Algorithmic Correctness & Memory Benchmarks**:
    - Verify sorting, searching, hashing, and cache lookups against expected output assertions.
    - Profile execution duration (nanoseconds/milliseconds) and peak RAM consumption (`tracemalloc`).
+4. **Cross-Language Comparative Benchmark Matrix (Python • Node.js • Dart)**:
+   - Execute identical algorithmic workloads across Python, Node.js (V8), and Dart SDK.
+   - Compare in-place Heap Sort, $100\text{k}$ Hash Table access, Fibonacci $O(N)$ speedup, and Monte Carlo $\pi$ throughput in a unified terminal matrix.
+   - Enforce uniform JSON contract schema compliance (`algo_result_schema.json`).
 
 ---
 
@@ -24,9 +28,17 @@ This directory is an independent testing module operating completely on Python s
 
 ```text
 Performance/
-├── README.md              <-- Performance criteria, benchmarks & execution guide
-├── reliability_tester.py  <-- Analytical concurrent load & reliability simulation model
-└── algorithm_tester.py    <-- Algorithmic correctness assertions & speed benchmarks
+├── README.md                 <-- Performance criteria, benchmarks & execution guide
+├── reliability_tester.py     <-- Analytical concurrent load & reliability simulation model
+├── algorithm_tester.py       <-- Correctness assertions, speed benchmarks & cross-language matrix
+│
+├── contracts/
+│   └── algo_result_schema.json <-- Standardized JSON contract for benchmark results
+│
+└── runners/
+    ├── algo_bench.py         <-- Python standard library runner
+    ├── algo_bench.js         <-- Node.js V8 runner
+    └── algo_bench.dart       <-- Dart SDK runner
 ```
 
 ---
@@ -50,6 +62,8 @@ python Performance/reliability_tester.py --concurrent 100,500,2000 --burst-secon
 python Performance/reliability_tester.py --server host_hardware --concurrent 1000
 ```
 
+---
+
 ### 2. Algorithmic Correctness & Speed Benchmark (`algorithm_tester.py`)
 Runs mathematical benchmarks and correctness assertions across standard computer science workloads:
 - Quicksort & Binary Search (lookups & sorting stability)
@@ -58,4 +72,22 @@ Runs mathematical benchmarks and correctness assertions across standard computer
 
 ```bash
 python Performance/algorithm_tester.py
+```
+
+---
+
+### 3. Cross-Language Algorithm Benchmark Matrix (`--cross-lang`)
+Runs the standardized 4-workload battery across Python, Node.js (V8), and Dart SDK, rendering a side-by-side comparison table:
+
+```bash
+# Run cross-language matrix only
+python Performance/algorithm_tester.py --cross-lang
+
+# Run both native algorithms and cross-language matrix
+python Performance/algorithm_tester.py --all
+
+# Run individual runners directly with JSON output
+python Performance/runners/algo_bench.py --json
+node Performance/runners/algo_bench.js --json
+dart Performance/runners/algo_bench.dart --json
 ```

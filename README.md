@@ -1,6 +1,6 @@
 # ⚡ UniversalTester (`testx`): Universal 5-Pillar Test & Simulation Engine
 
-> **Version 1.1.0** • 100% Python Standard Library Core • Zero Required Dependencies
+> **Version 1.2.0** • 100% Python Standard Library Core • Zero Required Dependencies
 
 **UniversalTester** is an independent, framework-agnostic testing, simulation, and security analysis engine. It provides a standardized **5-pillar testing methodology** to assess any software project across adaptivity, algorithmic correctness, performance latency, concurrency reliability, and security vulnerabilities.
 
@@ -11,7 +11,7 @@
 | Pillar | Focus | Target Coverage | Engine |
 | :--- | :--- | :--- | :--- |
 | **1. 🔄 Adaptive Tester** | Ecosystem Unit & Component Tests | Django (`manage.py test`), `pytest`, `unittest`, React/Node (`vitest`, `jest`, `npm test`) | Dynamic Adapters |
-| **2. 🧮 Algorithm Tester** | Algorithmic Correctness Assertions | Sorting stability, binary search bounds, SHA-256 NIST test vectors, JSON math | Native Engine |
+| **2. 🧮 Algorithm Tester** | Algorithmic Correctness & Cross-Language Benchmarks | Quicksort, Mergesort, Heap Sort, Hash Table, Fibonacci speedup, Monte Carlo $\pi$ | Native Engine + Node.js & Dart Runners |
 | **3. ⚡ Performance Tester** | Latency & Peak Memory Profiling | Execution duration (`perf_counter`), peak RAM usage & delta (`tracemalloc`), cryptographic throughput (MB/s) | Native Engine |
 | **4. 🛡️ Reliability Tester** | Concurrency Capacity & Stress | 50 to 2,000+ simulated users, traffic profiles (`read_heavy`, `write_heavy`, `balanced_api`, `burst_ping`), hardware saturation tiers | Analytical Model |
 | **5. 🔒 Security Tester** | Vulnerability Scan & Dependency Audit | Static AST detection of credentials, SQL injection, dangerous calls (`eval`/`exec`/`os.system`) + ecosystem audit delegation (`npm audit`, `pip-audit`, `safety`) | Static AST Engine |
@@ -41,6 +41,9 @@ testx algo
 testx perf
 testx reliability --concurrent 500
 testx security
+
+# Run cross-language benchmark matrix (Python • Node.js • Dart)
+python Performance/algorithm_tester.py --cross-lang
 ```
 
 ---
@@ -118,14 +121,21 @@ UniversalTester/
 │   └── node_adapter.py           <-- JS/TS runner (vitest, jest, npm test)
 │
 ├── Performance/                  <-- Native Benchmarks & Reliability Models
-│   ├── algorithm_tester.py       <-- Correctness assertions & peak memory benchmarks
+│   ├── algorithm_tester.py       <-- Correctness assertions, peak RAM & cross-language matrix
 │   ├── reliability_tester.py     <-- Analytical peak traffic & reliability saturation model
+│   ├── contracts/
+│   │   └── algo_result_schema.json <-- Standardized JSON contract for benchmark results
+│   ├── runners/                  <-- Multi-language benchmark runners
+│   │   ├── algo_bench.py         <-- Python standard library runner
+│   │   ├── algo_bench.js         <-- Node.js V8 runner
+│   │   └── algo_bench.dart       <-- Dart SDK runner
 │   └── README.md                 <-- Performance & reliability documentation
 │
 └── tests/                        <-- Automated Verification Suites
     ├── test_phase_3.py           <-- Dual adapter and runner discovery verification
     ├── test_phase_4.py           <-- Reliability and performance algorithm verification
-    └── test_phase_5.py           <-- Security AST scanner and orchestrator dispatch verification
+    ├── test_phase_5.py           <-- Security AST scanner and orchestrator dispatch verification
+    └── test_phase_7.py           <-- Cross-language runner and schema contract verification
 ```
 
 ---
@@ -136,7 +146,7 @@ Copy `tester_config.example.json` to `tester_config.json`:
 
 ```json
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "app_name": "Universal Tester",
   "projects": {
     "1": {

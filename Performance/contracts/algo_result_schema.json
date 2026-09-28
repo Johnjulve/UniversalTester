@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CrossLanguageAlgorithmBenchmarkResult",
+  "description": "Standardized JSON contract for UniversalTester cross-language algorithm benchmarks.",
+  "type": "object",
+  "required": [
+    "runtime",
+    "version",
+    "timestamp",
+    "total_duration_ms",
+    "workloads"
+  ],
+  "properties": {
+    "runtime": {
+      "type": "string",
+      "enum": ["python", "node", "dart"],
+      "description": "Runtime identifier executing the benchmark"
+    },
+    "version": {
+      "type": "string",
+      "description": "Runtime engine version (e.g. Python 3.12, Node.js v24.11, Dart 3.12)"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO 8601 execution timestamp"
+    },
+    "total_duration_ms": {
+      "type": "number",
+      "description": "Aggregate elapsed benchmark duration in milliseconds"
+    },
+    "workloads": {
+      "type": "object",
+      "required": [
+        "heap_sort",
+        "hash_table",
+        "fibonacci",
+        "monte_carlo_pi"
+      ],
+      "properties": {
+        "heap_sort": {
+          "type": "object",
+          "required": [
+            "dataset_size",
+            "duration_ms",
+            "comparisons",
+            "swaps",
+            "peak_memory_kb",
+            "correctness_verified"
+          ],
+          "properties": {
+            "dataset_size": { "type": "integer" },
+            "duration_ms": { "type": "number" },
+            "comparisons": { "type": "integer" },
+            "swaps": { "type": "integer" },
+            "peak_memory_kb": { "type": "number" },
+            "correctness_verified": { "type": "boolean" }
+          }
+        },
+        "hash_table": {
+          "type": "object",
+          "required": [
+            "dataset_size",
+            "lookup_keys",
+            "duration_ms",
+            "avg_lookup_us",
+            "found_count",
+            "correctness_verified"
+          ],
+          "properties": {
+            "dataset_size": { "type": "integer" },
+            "lookup_keys": { "type": "integer" },
+            "duration_ms": { "type": "number" },
+            "avg_lookup_us": { "type": "number" },
+            "found_count": { "type": "integer" },
+            "correctness_verified": { "type": "boolean" }
+          }
+        },
+        "fibonacci": {
+          "type": "object",
+          "required": [
+            "n",
+            "naive_duration_ms",
+            "memoized_duration_ms",
+            "speedup_factor",
+            "expected_result",
+            "actual_result",
+            "correctness_verified"
+          ],
+          "properties": {
+            "n": { "type": "integer" },
+            "naive_duration_ms": { "type": "number" },
+            "memoized_duration_ms": { "type": "number" },
+            "speedup_factor": { "type": "number" },
+            "expected_result": { "type": "integer" },
+            "actual_result": { "type": "integer" },
+            "correctness_verified": { "type": "boolean" }
+          }
+        },
+        "monte_carlo_pi": {
+          "type": "object",
+          "required": [
+            "samples",
+            "estimated_pi",
+            "actual_pi",
+            "absolute_error",
+            "duration_ms",
+            "samples_per_sec",
+            "correctness_verified"
+          ],
+          "properties": {
+            "samples": { "type": "integer" },
+            "estimated_pi": { "type": "number" },
+            "actual_pi": { "type": "number" },
+            "absolute_error": { "type": "number" },
+            "duration_ms": { "type": "number" },
+            "samples_per_sec": { "type": "number" },
+            "correctness_verified": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}
