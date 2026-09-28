@@ -1,89 +1,108 @@
 # 🏗️ UniversalTester (`testx`) Architecture & Extension Guide
 
-**UniversalTester** is architected around a **Two-Pillar Hybrid Design**:
-1. **Pillar 1: Native Test Engine**: Self-contained, framework-agnostic algorithms, mathematical stress models, system health diagnostics, and concurrency simulations operating purely on the Python Standard Library.
-2. **Pillar 2: Language & Framework Adapter System**: Modular delegates that discover, invoke, and normalize existing ecosystem test runners (`pytest`, `vitest`, `jest`, `junit`, `phpunit`) into a standardized result contract.
+> **Version 1.1.0** • Master 5-Pillar Architecture
+
+**UniversalTester** coordinates software quality across five complementary disciplines through a **Hybrid Two-Pillar Engine**:
+1. **Pillar 1: Native Test & Benchmark Engine**: Self-contained, framework-agnostic algorithms, mathematical stress models, system health diagnostics, concurrency traffic simulations, and static AST security auditing operating purely on the Python Standard Library.
+2. **Pillar 2: Language & Framework Adapter System**: Modular delegates that discover, invoke, and normalize existing ecosystem test runners (`pytest`, `vitest`, `jest`, `manage.py`) into standardized [TestResult](file:///d:/System%20Projects/UniversalTester/core/models.py) objects.
 
 ---
 
-## 🏛️ Core Architecture Diagram
+## 🏛️ Master 5-Pillar Architecture Diagram
 
 ```text
-               [ CLI Interface (tester.py / testx) ]
-                                 │
-                                 ▼
-              [ Test Orchestrator & Menu Controller ]
-                                 │
-         ┌───────────────────────┴───────────────────────┐
-         ▼                                               ▼
-┌───────────────────────────────┐     ┌───────────────────────────────────┐
-│     Native Test Engine        │     │          Adapter System           │
-├───────────────────────────────┤     ├───────────────────────────────────┤
-│ • CS Stress Benchmarks        │     │ • adapters/base.py (Contract)     │
-│   (Quicksort, Binary Search,  │     │ • adapters/django_adapter.py      │
-│    SHA-256 throughput, JSON)  │     │ • adapters/node_adapter.py        │
-│ • Concurrency Traffic Model   │     │ • Future: Python, Java, PHP, Go   │
-│ • System & Host Health Check  │     │   (delegates to pytest, vitest)   │
-└───────────────────────────────┘     └───────────────────────────────────┘
-         │                                               │
-         └───────────────────────┬───────────────────────┘
-                                 ▼
-                 [ Analytical Test Reporter ]
-                     (core/reporter.py)
-                                 │
-                                 ▼
-               [ Module Tree & Metrics Dashboard ]
+                           [ CLI Interface: testx / tester.py ]
+                                           │
+                                           ▼
+                     [ Master Test Orchestrator (core/orchestrator.py) ]
+                                           │
+          ┌────────────────────────────────┴────────────────────────────────┐
+          ▼                                                                 ▼
+┌───────────────────────────────────────┐       ┌───────────────────────────────────────┐
+│        Native Testing Engines         │       │       Language & Adapter System       │
+├───────────────────────────────────────┤       ├───────────────────────────────────────┤
+│ • Pillar 2: Algorithm Tester          │       │ • Pillar 1: Adaptive Tester           │
+│   (Performance/algorithm_tester.py)   │       │   (adapters/python_adapter.py)        │
+│ • Pillar 3: Performance Profiler      │       │   (adapters/node_adapter.py)          │
+│   (Latency + tracemalloc RAM)         │       │ • Capability Matrix                   │
+│ • Pillar 4: Reliability Tester        │       │   (Capability.ADAPTIVE, SECURITY,...) │
+│   (Performance/reliability_tester.py) │       │ • Ecosystem Registry                  │
+│ • Pillar 5: Security Scanner          │       │   (adapters/registry.py)              │
+│   (core/security.py - AST + Audit)    │       │                                       │
+└───────────────────────────────────────┘       └───────────────────────────────────────┘
+          │                                                                 │
+          └────────────────────────────────┬────────────────────────────────┘
+                                           ▼
+                            [ Standardized TestResult Model ]
+                                    (core/models.py)
+                                           │
+                                           ▼
+                              [ Analytical Test Reporter ]
+                                    (core/reporter.py)
+                                           │
+                                           ▼
+                         [ ANSI Aligned Summary & Grade A+ ]
 ```
 
 ---
 
-## 📋 The 5 Execution Modes
+## 📋 The 5 Official Testing Pillars
 
-UniversalTester organizes test workloads into five distinct suites:
+UniversalTester organizes all testing operations into five standardized pillars:
 
-| Key | Suite Name | Type | Description |
-| :---: | :--- | :---: | :--- |
-| **`[1]`** | **Ecosystem Unit & Component Tests** | *Adapter* | Delegates to the target project's native runner (`pytest`, `manage.py test`, `npm test`). |
-| **`[2]`** | **Native Algorithm Benchmark** | *Native* | Pure CS CPU throughput stress test (Quicksort, Mergesort, Binary Search, SHA-256, JSON). |
-| **`[3]`** | **Native Concurrency Simulation** | *Native* | Analytical traffic model simulating 50 to 1,000 concurrent user requests under burst conditions. |
-| **`[4]`** | **Native System & Health Check** | *Native* | Inspects host OS, Python runtime, CPU cores, target directory access, and disk capacity. |
-| **`[5]`** | **Full Comprehensive Suite** | *Orchestrated* | Executes the complete test battery end-to-end and renders a unified summary. |
+| Pillar | Scope | Implementation | Output Contract |
+| :---: | :--- | :--- | :--- |
+| **`[1] Adaptive`** | Target project's native unit, component & integration tests | `PythonAdapter`, `NodeAdapter` delegating to `pytest`, `manage.py test`, `vitest`, `jest` | Normalized `TestResult` with pass/fail/skip counts |
+| **`[2] Algorithm`** | Algorithmic correctness assertions comparing actual vs expected outputs | Quicksort, Mergesort, Binary Search, SHA-256 NIST vectors, JSON math | `TestResult` asserting mathematical precision |
+| **`[3] Performance`** | Computational latency benchmarks and peak memory consumption | `time.perf_counter()` duration (ms) + `tracemalloc` peak RAM (KB/MB) | Memory delta and cryptographic MB/s metrics |
+| **`[4] Reliability`** | Concurrency capacity, saturation limits, and degradation tiers | 50 to 2,000+ users, traffic profiles (`read_heavy`, `write_heavy`, `balanced_api`, `burst_ping`) | Hardware degradation status (`OPTIMAL` to `CRITICAL`) |
+| **`[5] Security`** | Static vulnerability pattern scanning & ecosystem audit delegation | Static AST scanner for secrets, SQLi, unsafe `eval`/`exec`/`os.system` + `npm audit`/`pip-audit`/`safety` | Severity findings (`HIGH`, `MEDIUM`, `LOW`) |
+| **`[6] Full Audit`** | Sequential execution of Pillars 1 through 5 | `TestOrchestrator.run_all_pillars()` | Consolidated ANSI scorecards with overall health grade |
 
 ---
 
 ## 🔌 Creating a New Framework Adapter
 
-Any new language or framework adapter inherits from [`BaseAdapter`](adapters/base.py):
+Any new language or framework adapter inherits from [`BaseAdapter`](adapters/base.py) and overrides the capability methods:
 
 ```python
 import subprocess
-from adapters.base import BaseAdapter
-from core.ui import print_section_header
+from adapters.base import BaseAdapter, Capability
+from core.models import TestResult
 
 class GoAdapter(BaseAdapter):
     """Adapter for Go projects using 'go test'."""
 
-    def run_components_test(self) -> bool:
-        print_section_header(f"Running Go Unit Tests for {self.name}")
-        res = subprocess.run(["go", "test", "./..."], cwd=self.project_path)
-        return res.returncode == 0
+    @classmethod
+    def applies(cls, project_path: str) -> bool:
+        import os
+        return os.path.exists(os.path.join(project_path, "go.mod"))
 
-    def run_simulation_test(self, concurrent_users: int) -> bool:
-        # Delegates to native simulation or custom k6/locust scenario
-        return True
+    @classmethod
+    def adapter_id(cls) -> str:
+        return "go"
 
-    def run_algorithms_test(self) -> bool:
-        # Executes native CS benchmarks
-        from Performance.algorithm_tester import run_benchmarks
-        return run_benchmarks()
+    def supported_capabilities(self) -> list:
+        return [
+            Capability.ADAPTIVE,
+            Capability.ALGORITHMS,
+            Capability.PERFORMANCE,
+            Capability.RELIABILITY,
+            Capability.SECURITY
+        ]
 
-    def run_overall_test(self) -> bool:
-        return self.run_components_test() and self.run_algorithms_test() and self.run_health_check()
+    def run_components_test(self) -> TestResult:
+        res = subprocess.run(["go", "test", "./..."], cwd=self.project_path, capture_output=True, text=True)
+        return TestResult(
+            suite_name="Go Unit Tests",
+            status="PASS" if res.returncode == 0 else "FAIL",
+            raw_output=res.stdout + res.stderr
+        )
 ```
 
 ### Steps to Register a New Adapter:
 1. Create `adapters/<name>_adapter.py` inheriting from `BaseAdapter`.
-2. Register the adapter in `adapters/__init__.py`.
+2. Register the adapter class in `adapters/registry.py` and `adapters/__init__.py`.
 3. Add a project definition in `tester_config.json` (or use `tester_config.example.json` as a guide).
 
 ---
@@ -91,6 +110,10 @@ class GoAdapter(BaseAdapter):
 ## 📊 Analytical Output & Reporting Architecture
 
 All test streams pass through [`core/reporter.py`](core/reporter.py):
-- **ANSI-Aware Padding**: Visible character length calculations strip escape bytes so table borders (`┌─┬─┐`, `│`, `└─┴─┘`) remain laser-aligned.
-- **Noise Suppression**: Suppresses internal database setup/teardown debug messages while surfacing real-time test passes (`✔`) and failures (`✘`).
-- **Health Grading**: Computes overall pass rates and awards grades ($A+$ for 100% contracts verified, $B$ for minor failures, $F$ for critical regressions).
+- **ANSI-Aware Padding**: Column widths account for terminal control codes, keeping table borders (`┌─┬─┐`, `│`, `└─┴─┘`) laser-aligned across Windows Terminal, PowerShell, and Unix bash.
+- **Graceful Unavailability Handling**: When a project lacks a specific test runner or configuration (e.g. static HTML lacking API concurrency), the suite renders `[○ UNAVAILABLE]` without penalizing the overall system health grade.
+- **Grading Matrix**: Health grades are awarded dynamically:
+  - **Grade A+**: 100% active tests passing.
+  - **Grade A / B**: 90%–99% passing with minor failures.
+  - **Grade C / D**: 70%–89% passing.
+  - **Grade F**: Critical failures (<70% passing or critical vulnerability finding).

@@ -1,48 +1,69 @@
-# ⚡ UniversalTester: Multi-Framework Test & Simulation Engine
+# ⚡ UniversalTester (`testx`): Universal 5-Pillar Test & Simulation Engine
 
-**UniversalTester** is an independent, framework-agnostic terminal CLI application designed to orchestrate tests, simulate concurrent user loads, and run performance benchmarks across multiple software projects and technology stacks.
+> **Version 1.1.0** • 100% Python Standard Library Core • Zero Required Dependencies
+
+**UniversalTester** is an independent, framework-agnostic testing, simulation, and security analysis engine. It provides a standardized **5-pillar testing methodology** to assess any software project across adaptivity, algorithmic correctness, performance latency, concurrency reliability, and security vulnerabilities.
 
 ---
 
-## 🎯 Key Capabilities
+## 🏛️ The 5 Foundational Testing Pillars
 
-- 🖥️ **Interactive Terminal UI**: Intuitive numbered menus with automatic screen clearing, color-coded status badges, and clean progress indicators.
-- 🌐 **Multi-Project Management**: Effortlessly switch between multiple projects (Python backends, React/Node frontends, or custom paths) from a single hub.
-- 🔌 **Pluggable Adapter Architecture**: Ready-to-use adapters for **Python/Django** and **Node.js/React**, with an open interface to add any language or framework.
-- 📊 **Analytical Concurrency Simulation**: Mathematical load modeling for high-traffic peak events (e.g. 50 to 2,000 concurrent users/requests) calculating egress, req/s, and server hardware utilization.
-- ⚡ **Automated Benchmarking**: Latency, database query count profiling, and algorithm speed verification.
+| Pillar | Focus | Target Coverage | Engine |
+| :--- | :--- | :--- | :--- |
+| **1. 🔄 Adaptive Tester** | Ecosystem Unit & Component Tests | Django (`manage.py test`), `pytest`, `unittest`, React/Node (`vitest`, `jest`, `npm test`) | Dynamic Adapters |
+| **2. 🧮 Algorithm Tester** | Algorithmic Correctness Assertions | Sorting stability, binary search bounds, SHA-256 NIST test vectors, JSON math | Native Engine |
+| **3. ⚡ Performance Tester** | Latency & Peak Memory Profiling | Execution duration (`perf_counter`), peak RAM usage & delta (`tracemalloc`), cryptographic throughput (MB/s) | Native Engine |
+| **4. 🛡️ Reliability Tester** | Concurrency Capacity & Stress | 50 to 2,000+ simulated users, traffic profiles (`read_heavy`, `write_heavy`, `balanced_api`, `burst_ping`), hardware saturation tiers | Analytical Model |
+| **5. 🔒 Security Tester** | Vulnerability Scan & Dependency Audit | Static AST detection of credentials, SQL injection, dangerous calls (`eval`/`exec`/`os.system`) + ecosystem audit delegation (`npm audit`, `pip-audit`, `safety`) | Static AST Engine |
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Installation & Environment Setup
-Clone and install optional dependencies (the core CLI requires only standard library Python 3.8+):
+### 1. Standalone Global Installation (`testx`)
+Install UniversalTester as an editable CLI tool on your local machine:
 ```bash
-# Clone the repository
 git clone https://github.com/Johnjulve/UniversalTester.git
 cd UniversalTester
 
-# (Optional) Create a virtual environment and install load-testing tools
-python -m venv .venv
-.\.venv\Scripts\activate   # Linux/macOS: source .venv/bin/activate
-pip install -r requirements.txt
+# Install globally in your active environment
+pip install -e .
+```
+Now `testx` is available directly from any terminal or project directory!
+
+```bash
+# Run the unified 5-pillar assessment on the current project
+testx all
+
+# Run specific testing pillars directly
+testx adaptive
+testx algo
+testx perf
+testx reliability --concurrent 500
+testx security
 ```
 
-### 2. Launch Interactive CLI
-Run with one click or command:
+---
+
+### 2. Portable Launchers (Zero Installation)
+If you prefer not to install into your global environment, run directly using the included zero-dependency launchers:
+
 ```bash
-# Windows PowerShell (automatically detects local .venv or system Python)
+# Windows PowerShell (automatically finds local .venv or system Python)
 .\run.ps1
 
 # Windows CMD
 run.cmd
 
-# Direct Python execution
+# Direct Python invocation
 python tester.py
 ```
 
-### 3. The Interactive Flow
+---
+
+### 3. Interactive Terminal Experience
+Launching without arguments opens the full-featured interactive dashboard:
+
 ```text
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                 ⚡ UNIVERSAL TEST & SIMULATION ENGINE                         ║
@@ -56,11 +77,12 @@ Choose project for testing:
   [0] Exit
 
 What type of Test/Simulation:
-  [1] Ecosystem Unit & Component Tests  - Delegates to project runner (pytest / vitest)
-  [2] Native Algorithm Benchmark        - Pure CS stress test (Quicksort, SHA-256)
-  [3] Native Concurrency Simulation     - Analytical peak traffic & capacity model
-  [4] Native System & Health Check      - Host CPU, memory, runtime environment
-  [5] Full Comprehensive Suite          - Complete run: Unit Tests + Algorithms + Simulation
+  [1] Adaptive Tester      - Target project native tests (pytest / vitest)
+  [2] Algorithm Tester     - Algorithmic correctness assertions & edge cases
+  [3] Performance Tester   - Latency benchmarks & tracemalloc memory profiling
+  [4] Reliability Tester   - Concurrency capacity & over-limit stress simulation
+  [5] Security Tester      - Static AST vulnerability scan & ecosystem audit
+  [6] Full 5-Pillar Audit  - Complete sequential assessment with Grade A+ scorecard
   [0] Back to Project Selection
 ```
 
@@ -70,36 +92,51 @@ What type of Test/Simulation:
 
 ```text
 UniversalTester/
-├── tester.py                     <-- Main terminal interactive CLI entrypoint
+├── pyproject.toml                <-- PEP 518/621 packaging & testx CLI script definition
+├── tester.py                     <-- Main CLI entrypoint & interactive menu controller
 ├── tester_config.example.json    <-- Example configuration template
-├── tester_config.json            <-- Local active project configuration (ignored)
+├── tester_config.json            <-- Active multi-project local configuration (gitignored)
 ├── requirements.txt              <-- Optional test & benchmark dependencies
 ├── run.cmd / run.ps1             <-- Portable Windows execution launchers
-├── README.md                     <-- Documentation and usage guide
-├── ARCHITECTURE.md               <-- Two-pillar hybrid architecture guide
+├── README.md                     <-- User-facing overview & usage guide
+├── ARCHITECTURE.md               <-- System architecture & adapter development guide
 ├── CHANGELOG.md                  <-- Release version log
 ├── LICENSE                       <-- MIT License
-├── core/
-│   ├── reporter.py               <-- Stream parser & analytical metrics dashboard
+│
+├── core/                         <-- Core Engine (100% Python Standard Library)
+│   ├── models.py                 <-- Standardized TestResult and TestStatus models
+│   ├── orchestrator.py           <-- Master 5-pillar test coordinator & dispatch engine
+│   ├── reporter.py               <-- Stream parser, ANSI-aligned table formatter & health grading
+│   ├── security.py               <-- Static AST vulnerability scanner & ecosystem audit delegation
 │   └── ui.py                     <-- Terminal formatting, ANSI colors & screen clearing
-├── adapters/
-│   ├── base.py                   <-- BaseAdapter interface & universal health checks
-│   ├── django_adapter.py         <-- Django & DRF test execution & concurrency simulations
-│   └── node_adapter.py           <-- Node.js / React / Vite / Next.js adapter
-└── Performance/
-    ├── algorithm_tester.py       <-- Algorithmic correctness assertions & peak memory benchmarks
-    └── reliability_tester.py     <-- Analytical peak traffic & reliability saturation model
+│
+├── adapters/                     <-- Dynamic Language & Framework Adapters
+│   ├── base.py                   <-- BaseAdapter protocol & host system health check
+│   ├── registry.py               <-- Ecosystem scanner & adapter discovery registry
+│   ├── python_adapter.py         <-- Universal Python runner (Django, pytest, unittest)
+│   ├── django_adapter.py         <-- Backwards-compatible Django adapter subclass
+│   └── node_adapter.py           <-- JS/TS runner (vitest, jest, npm test)
+│
+├── Performance/                  <-- Native Benchmarks & Reliability Models
+│   ├── algorithm_tester.py       <-- Correctness assertions & peak memory benchmarks
+│   ├── reliability_tester.py     <-- Analytical peak traffic & reliability saturation model
+│   └── README.md                 <-- Performance & reliability documentation
+│
+└── tests/                        <-- Automated Verification Suites
+    ├── test_phase_3.py           <-- Dual adapter and runner discovery verification
+    ├── test_phase_4.py           <-- Reliability and performance algorithm verification
+    └── test_phase_5.py           <-- Security AST scanner and orchestrator dispatch verification
 ```
 
 ---
 
 ## ⚙️ Adding & Configuring Projects
 
-Copy `tester_config.example.json` to `tester_config.json` (or edit `tester_config.json` directly):
+Copy `tester_config.example.json` to `tester_config.json`:
 
 ```json
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "app_name": "Universal Tester",
   "projects": {
     "1": {
@@ -117,8 +154,9 @@ Copy `tester_config.example.json` to `tester_config.json` (or edit `tester_confi
       "path": "d:/Projects/MyFrontend",
       "frontend_dir": "d:/Projects/MyFrontend"
     }
-  }
+  },
+  "default_concurrency_options": [50, 100, 500, 1000, 2000]
 }
 ```
 
-> **Note**: For Django projects, if `"python_env"` is left empty or omitted, `UniversalTester` will automatically locate your virtual environment (`.venv` or `env`) inside the project!
+> **Dynamic Virtual Environments**: If `"python_env"` is omitted or left empty, UniversalTester automatically searches `.venv`, `venv`, and `env` inside the project root, backend folder, and parent paths.
