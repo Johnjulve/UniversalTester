@@ -46,7 +46,7 @@ def load_config() -> Dict[str, Any]:
             pass
 
     return {
-        "version": "1.1.0",
+        "version": "1.2.0",
         "app_name": "Universal Tester",
         "projects": {},
         "default_concurrency_options": [50, 100, 500, 1000, 2000]

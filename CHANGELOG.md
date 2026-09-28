@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.2.0] - 2026-09-28
+
+### Added
+- **Cross-Language Benchmark Matrix**: Multi-runtime algorithm benchmark engine evaluating Python, Node.js (V8), and Dart SDK side-by-side in an ANSI-aligned terminal comparison table.
+- **4 Expanded Algorithmic Workloads**:
+  - *Heap Sort*: In-place min/max heapify tracking swap counts, comparisons, and peak memory.
+  - *Hash Table Lookups*: $O(1)$ lookup latency benchmark matching $100\text{k}$ dataset size.
+  - *Fibonacci*: Dual execution comparing naive recursive vs. $O(N)$ linear memoized speedup with runaway call stack protection ($N \le 32$).
+  - *Monte Carlo $\pi$*: High-throughput point sampling measuring mathematical error ($|\pi_{\text{est}} - \pi|$) and samples/sec with sample-size adaptive statistical tolerance.
+- **Standardized Benchmark Contract Schema**: Created `Performance/contracts/algo_result_schema.json` enforcing uniform JSON outputs across all language backends.
+- **Multi-Runtime Runners**: Built pure standard-library runners in Python (`algo_bench.py`), Node.js (`algo_bench.js`), and Dart (`algo_bench.dart`).
+- **Phase 7 Automated Verification Suite**: Added `tests/test_phase_7.py` validating schema compliance and mathematical assertions across all 3 language backends.
+
+
 ## [1.1.0] - 2026-09-28
 
 ### Added
