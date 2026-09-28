@@ -46,7 +46,7 @@ def load_config() -> Dict[str, Any]:
             pass
 
     return {
-        "version": "1.0.0",
+        "version": "1.1.0",
         "app_name": "Universal Tester",
         "projects": {},
         "default_concurrency_options": [50, 100, 500, 1000, 2000]
@@ -207,7 +207,7 @@ def select_concurrency() -> Optional[int]:
             error_msg = f"Invalid option: '{choice}'. Please select from the menu above."
 
 
-def main():
+def run_interactive_menu():
     """Main interactive terminal loop."""
     config = load_config()
     
@@ -329,12 +329,17 @@ def run_cli():
 
     # Interactive terminal loop
     try:
-        main()
+        run_interactive_menu()
     except (KeyboardInterrupt, EOFError):
         print(f"\n\n{Colors.YELLOW}Operation cancelled by user.{Colors.RESET}")
         sys.exit(0)
 
 
-if __name__ == '__main__':
+def main():
+    """Main entrypoint for CLI command execution (testx) and interactive launcher."""
     run_cli()
+
+
+if __name__ == '__main__':
+    main()
 
