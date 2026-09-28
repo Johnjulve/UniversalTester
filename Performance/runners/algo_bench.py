@@ -177,8 +177,9 @@ def run_monte_carlo_pi(samples: int = 1000000) -> Dict[str, Any]:
     abs_error = abs(estimated_pi - actual_pi)
     samples_per_sec = samples / max(duration_sec, 0.00001)
 
-    # Statistical tolerance: with 1M samples, error is typically < 0.01
-    correctness_verified = abs_error < 0.01
+    # Statistical tolerance: adaptive based on sample volume
+    tolerance = 0.05 if samples < 100000 else 0.01
+    correctness_verified = abs_error < tolerance
 
     return {
         "samples": samples,

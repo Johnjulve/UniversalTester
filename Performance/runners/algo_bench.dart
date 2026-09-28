@@ -190,7 +190,7 @@ Map<String, dynamic> runMonteCarloPi([int samples = 1000000]) {
     'absolute_error': double.parse(absError.toStringAsFixed(6)),
     'duration_ms': double.parse(durationMs.toStringAsFixed(3)),
     'samples_per_sec': double.parse(samplesPerSec.toStringAsFixed(1)),
-    'correctness_verified': absError < 0.01,
+    'correctness_verified': absError < (samples < 100000 ? 0.05 : 0.01),
   };
 }
 

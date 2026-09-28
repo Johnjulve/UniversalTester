@@ -197,7 +197,7 @@ function runMonteCarloPi(samples = 1000000) {
     absolute_error: Number(absError.toFixed(6)),
     duration_ms: Number(durationMs.toFixed(3)),
     samples_per_sec: Number(samplesPerSec.toFixed(1)),
-    correctness_verified: absError < 0.01
+    correctness_verified: absError < (samples < 100000 ? 0.05 : 0.01)
   };
 }
 
