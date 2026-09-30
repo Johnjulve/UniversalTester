@@ -66,5 +66,55 @@ class TestPhase8DataContracts(unittest.TestCase):
         self.assertEqual(reconstructed.message, evt.message)
 
 
+class TestPhase8TesterService(unittest.TestCase):
+    """Integration tests for TesterService hexagonal facade."""
+
+    def setUp(self):
+        from core.service import TesterService
+        self.service = TesterService()
+
+    def test_list_capabilities_returns_all_pillars(self):
+        caps = self.service.list_capabilities()
+        cap_ids = [c["id"] for c in caps]
+        self.assertIn("components", cap_ids)
+        self.assertIn("algorithms", cap_ids)
+        self.assertIn("benchmarks", cap_ids)
+        self.assertIn("simulation", cap_ids)
+        self.assertIn("security", cap_ids)
+        self.assertIn("full_suite", cap_ids)
+        self.assertIn("health", cap_ids)
+
+    def test_service_run_with_event_streaming(self):
+        events = []
+        def on_event(evt):
+            events.append(evt)
+
+        req = RunRequest(capability="health", options={"silent": True})
+        result = self.service.run(req, on_event=on_event)
+
+        self.assertIsInstance(result, RunResult)
+        self.assertTrue(result.run_id.startswith("run-"))
+        self.assertGreater(len(events), 0)
+        self.assertEqual(events[0].percent, 0.0)
+        self.assertEqual(events[-1].percent, 100.0)
+
+    def test_service_run_algorithms_success(self):
+        req = RunRequest(capability="algorithms")
+        result = self.service.run(req)
+
+        self.assertIsInstance(result, RunResult)
+        self.assertEqual(result.status, "PASSED")
+        self.assertTrue(result.is_success)
+        self.assertGreater(result.metrics.get("passed", 0), 0)
+
+    def test_service_run_unrecognized_capability(self):
+        req = RunRequest(capability="unknown_custom_cap")
+        result = self.service.run(req)
+
+        self.assertIsInstance(result, RunResult)
+        self.assertEqual(result.status, "UNAVAILABLE")
+
+
 if __name__ == '__main__':
     unittest.main()
+
