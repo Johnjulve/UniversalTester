@@ -238,6 +238,35 @@ class TestPhase8DesktopGUI(unittest.TestCase):
         finally:
             app.destroy()
 
+    def test_gui_app_log_text_read_only_and_highlightable(self):
+        from gui.main import UniversalTesterApp, HAS_CTK
+        if not HAS_CTK:
+            self.skipTest("customtkinter is not installed")
+
+        app = UniversalTesterApp()
+        app.withdraw()
+        try:
+            # 1. State must be disabled so user cannot delete or type text
+            self.assertEqual(app.log_text.cget("state"), "disabled")
+
+            # 2. Programmatic logging appends text properly
+            app._append_log("Test Line 1\nTest Line 2\n")
+            content = app.log_text.get("1.0", "end")
+            self.assertIn("Test Line 1", content)
+            self.assertEqual(app.log_text.cget("state"), "disabled")
+
+            # 3. Text is highlightable and selectable
+            app.log_text._textbox.tag_add("sel", "1.0", "1.11")
+            sel_text = app.log_text._textbox.get("sel.first", "sel.last")
+            self.assertEqual(sel_text, "Test Line 1")
+
+            # 4. Clearing resets content while preserving disabled state
+            app._clear_log()
+            self.assertEqual(app.log_text.get("1.0", "end").strip(), "")
+            self.assertEqual(app.log_text.cget("state"), "disabled")
+        finally:
+            app.destroy()
+
 
 
 if __name__ == '__main__':

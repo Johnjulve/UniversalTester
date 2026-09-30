@@ -152,7 +152,29 @@ if HAS_CTK:
 
             ctk.CTkLabel(console_box, text="Live Execution Output:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(0, 4))
             self.log_text = ctk.CTkTextbox(console_box, font=ctk.CTkFont(family="Consolas", size=11), wrap="word", corner_radius=8)
+            self.log_text.configure(state="disabled")
             self.log_text.pack(fill="both", expand=True)
+
+            # Bind Ctrl+A / Ctrl+a to highlight all text
+            def _select_all(e=None):
+                self.log_text._textbox.tag_add("sel", "1.0", "end")
+                return "break"
+
+            self.log_text._textbox.bind("<Control-a>", _select_all)
+            self.log_text._textbox.bind("<Control-A>", _select_all)
+
+        def _clear_log(self):
+            """Clear log text while keeping widget read-only for user."""
+            self.log_text.configure(state="normal")
+            self.log_text.delete("1.0", "end")
+            self.log_text.configure(state="disabled")
+
+        def _append_log(self, text: str):
+            """Append text to log while keeping widget read-only for user."""
+            self.log_text.configure(state="normal")
+            self.log_text.insert("end", text)
+            self.log_text.see("end")
+            self.log_text.configure(state="disabled")
 
         def _browse_dir(self):
             selected = filedialog.askdirectory(initialdir=self.project_path_var.get())
@@ -256,8 +278,8 @@ if HAS_CTK:
                 hover_color="#dc2626",
                 state="normal"
             )
-            self.log_text.delete("1.0", "end")
-            self.log_text.insert("end", f"▶ Starting workload: {label}\n\n")
+            self._clear_log()
+            self._append_log(f"▶ Starting workload: {label}\n\n")
 
             req = RunRequest(
                 capability=capability,
@@ -289,8 +311,7 @@ if HAS_CTK:
                             self.progress_bar.set(min(1.0, max(0.0, evt.percent / 100.0)))
                             self.step_var.set(f"[{evt.step}] {evt.message}")
                         if evt.message is not None:
-                            self.log_text.insert("end", f"{evt.message}\n")
-                            self.log_text.see("end")
+                            self._append_log(f"{evt.message}\n")
                     elif mtype == "result":
                         res: RunResult = payload
                         self.action_btn.configure(
@@ -313,8 +334,7 @@ if HAS_CTK:
                         summary = f"\n──────────────────────────────────────────────────\nRun ID: {res.run_id} | Status: {res.status} | Duration: {res.duration_s}s\n"
                         if res.metrics:
                             summary += f"Metrics: {res.metrics}\n"
-                        self.log_text.insert("end", summary)
-                        self.log_text.see("end")
+                        self._append_log(summary)
             except queue.Empty:
                 pass
 
