@@ -1,6 +1,6 @@
 # ⚡ UniversalTester (`testx`): Universal 5-Pillar Test & Simulation Engine
 
-> **Version 1.2.0** • 100% Python Standard Library Core • Zero Required Dependencies
+> **Version 2.0.0** • 100% Python Standard Library Core • Desktop GUI & CLI
 
 **UniversalTester** is an independent, framework-agnostic testing, simulation, and security analysis engine. It provides a standardized **5-pillar testing methodology** to assess any software project across adaptivity, algorithmic correctness, performance latency, concurrency reliability, and security vulnerabilities.
 
@@ -32,6 +32,11 @@ pip install -e .
 Now `testx` is available directly from any terminal or project directory!
 
 ```bash
+# Launch the Modern Desktop GUI
+testx --gui
+# or directly:
+python tester.py --gui
+
 # Run the unified 5-pillar assessment on the current project
 testx all
 
@@ -146,7 +151,7 @@ Copy `tester_config.example.json` to `tester_config.json`:
 
 ```json
 {
-  "version": "1.2.0",
+  "version": "2.0.0",
   "app_name": "Universal Tester",
   "projects": {
     "1": {

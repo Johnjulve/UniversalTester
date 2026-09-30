@@ -12,7 +12,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="testx",
         description="UniversalTester: Multi-framework 5-pillar software testing & benchmark engine."
     )
-    parser.add_argument("-v", "--version", action="version", version="UniversalTester 1.2.0")
+    parser.add_argument("-v", "--version", action="version", version="UniversalTester 2.0.0")
     parser.add_argument("--gui", "-g", action="store_true", help="Launch the cross-platform Desktop GUI application.")
 
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")

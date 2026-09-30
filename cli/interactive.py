@@ -26,7 +26,7 @@ def load_config(root_dir: str) -> Dict[str, Any]:
                     return json.load(f)
             except Exception:
                 pass
-    return {"version": "1.2.0", "projects": {}, "default_concurrency_options": [50, 100, 500, 1000]}
+    return {"version": "2.0.0", "projects": {}, "default_concurrency_options": [50, 100, 500, 1000]}
 
 
 def select_project(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:

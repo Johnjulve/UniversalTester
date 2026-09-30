@@ -46,7 +46,7 @@ if HAS_CTK:
             self.event_queue: queue.Queue = queue.Queue()
             self.config = load_config(_ROOT_DIR)
 
-            self.title("⚡ UniversalTester (testx) — Quality & Benchmark Engine")
+            self.title("⚡ UniversalTester v2.0.0 (testx) — Quality & Benchmark Engine")
             self.geometry("1040x680")
             self.minsize(840, 540)
 
@@ -70,7 +70,7 @@ if HAS_CTK:
             title_box = ctk.CTkFrame(header, fg_color="transparent")
             title_box.pack(side="left", padx=12, pady=8)
 
-            ctk.CTkLabel(title_box, text="⚡ UniversalTester", font=ctk.CTkFont(size=18, weight="bold"), text_color=("#1f538d", "#38bdf8")).pack(anchor="w")
+            ctk.CTkLabel(title_box, text="⚡ UniversalTester  v2.0.0", font=ctk.CTkFont(size=18, weight="bold"), text_color=("#1f538d", "#38bdf8")).pack(anchor="w")
             ctk.CTkLabel(title_box, text="5-Pillar Quality Engine & Algorithm Matrix", font=ctk.CTkFont(size=11), text_color="gray").pack(anchor="w")
 
             theme_box = ctk.CTkFrame(header, fg_color="transparent")

@@ -7,12 +7,14 @@ import sys
 import json
 from typing import List, Optional
 
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT_DIR not in sys.path:
+    sys.path.insert(0, _ROOT_DIR)
+
 from cli.parser import build_parser
 from cli.interactive import run_interactive_loop, load_config
 from core.service import TesterService
 from core.models import RunRequest
-
-_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def main(args: Optional[List[str]] = None) -> int:

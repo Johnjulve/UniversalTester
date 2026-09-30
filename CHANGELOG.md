@@ -6,25 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased]
+## [2.0.0] - 2026-10-01
 
 ### Added
+- **Modern CustomTkinter Desktop GUI (`gui/`)**:
+  - Built dark-mode desktop application featuring dynamic capability sidebars, project selector, and real-time execution console.
+  - Added editable `CTkComboBox` for concurrency volume with presets and arbitrary custom user counts (e.g. 750, 1,500, 30,000).
+  - Implemented dynamic visibility: concurrency controls show only for Full Assessment and Pillar 4 Simulation, staying hidden for other capabilities.
+  - Added non-blocking execution via `AsyncTestRunner` with live event queuing and cancel support.
 - **Hexagonal Architecture (Core + Adapters)**:
   - Built `TesterService` in `core/service.py` providing an in-process programmatic API ("call a function, get structured result") with zero HTTP dependencies.
   - Added serializable dataclasses `RunRequest` and `RunResult` in `core/models.py` for structured input/output contracts.
   - Added `ProgressEvent` and `EventHandler` callback protocol in `core/events.py` for real-time progress streaming.
+- **Zero-Dependency Session Memory Tracking**:
+  - Implemented `get_session_memory_mb()` in `core/ui.py` querying Windows native working set RAM via `K32GetProcessMemoryInfo` (ctypes) with `resource` and `tracemalloc` fallbacks.
+  - Integrated live session RAM usage and peak working set into execution completion status, analytical dashboards, and overall summary scorecards.
+- **Tolerable Benchmark SLA & Sizing Diagnostics**:
+  - Added tolerable benchmark capacity threshold ($\ge 70\%$ pass rate) that passes with caution (`⚠ CAUTION` / Grade B+) rather than failing completely.
+  - Replaced ambiguous high-utilization percentages (>100%) with intuitive `OVERLOAD (Nx)` multiplier format across diagnostic reports and terminal tables.
 - **Modular CLI Package (`cli/`)**:
   - Implemented `cli/parser.py` supporting `testx run [PROJECT] [--pillar P] [--users U] [--json]`, `testx bench`, `testx matrix`, and `testx doctor`.
   - Implemented `cli/interactive.py` rendering terminal menus dynamically generated from `TesterService.list_capabilities()`.
-  - Implemented `cli/main.py` master dispatcher and refactored root `tester.py` to a thin 16-line launcher.
-- **Cross-Platform Desktop GUI (`gui/`)**:
-  - Created desktop application for Windows and Linux built purely on Standard Library `tkinter`/`ttk`.
-  - Built `AsyncTestRunner` in `gui/worker.py` for non-blocking background test execution with live event queue streaming.
-  - Built visual project selector, dynamic capability sidebar, real-time progress bar, live execution console, and results cards.
+  - Implemented `cli/main.py` master dispatcher and refactored root `tester.py` to a thin launcher with `--gui` support.
 - **Packaging & Entrypoints**:
   - Registered `testx-gui = "gui.main:main"` in `pyproject.toml` and updated package discovery to include `cli*` and `gui*`.
-- **Phase 8 Verification Suite**:
-  - Added `tests/test_phase_8.py` with 12 unit tests validating data contracts, service facade, CLI parser, and GUI async worker.
+- **Automated Verification Suite**:
+  - Added `tests/test_phase_8.py` with 15 unit tests validating data contracts, service facade, CLI parser, GUI async worker, session RAM tracking, and tolerable SLA thresholds.
 
 
 ## [1.2.0] - 2026-09-28
