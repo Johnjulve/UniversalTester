@@ -234,13 +234,140 @@ def assess_reliability_state(util_pct: float) -> Tuple[str, str]:
         return 'CRITICAL', 'System overload — connection rejection, widespread timeouts & drops'
 
 
+
+try:
+    from core.ui import Colors, get_session_memory_mb
+except ImportError:
+    class Colors:
+        RESET = "\033[0m"
+        BRIGHT_GREEN = "\033[92m"
+        BRIGHT_RED = "\033[91m"
+        YELLOW = "\033[93m"
+        CYAN = "\033[36m"
+        BOLD = "\033[1m"
+        DIM = "\033[2m"
+    get_session_memory_mb = None
+
+
+def _evaluate_single_tier(
+    scenario: ScenarioMix, server_key: str, concurrent: int, burst_seconds: int
+) -> Tuple[bool, float, float, float]:
+    """Calculate capacity utilization and metrics for one tier and server."""
+    cap_rps = calculate_effective_capacity(scenario, server_key)
+    agg = simulate_scenario(concurrent, scenario, burst_seconds)
+    util = (agg['arrival_rps'] / cap_rps) * 100.0 if cap_rps > 0 else 999.0
+    return (util <= 100.0), util, agg['arrival_rps'], agg['total_egress_mb']
+
+
+def diagnose_overload_causes(
+    failed_evals: List[Dict[str, Any]], peak_rps: float, peak_egress_mb: float
+) -> List[str]:
+    """Extract actionable diagnostic root causes for capacity violations."""
+    if not failed_evals:
+        return []
+    worst = max(failed_evals, key=lambda x: x["util"])
+    overload_ratio = worst['util'] / 100.0
+    load_desc = f"{worst['util']:.0f}% utilization" if worst['util'] <= 100.0 else f"OVERLOAD ({overload_ratio:.1f}x)"
+    causes = [
+        f"Server capacity exceeded at {worst['concurrent']:,} concurrent users "
+        f"({worst['server']}: {load_desc}, peak {peak_rps:.1f} req/s)."
+    ]
+    if worst["util"] >= 150.0:
+        causes.append("Critical queue saturation: OS backlog buildup triggers connection timeouts & 504 errors.")
+    if peak_egress_mb > 15.0:
+        causes.append(f"High network egress ({peak_egress_mb:.1f}MB burst) creates socket buffer pressure.")
+    return causes
+
+
+def get_remediation_guidelines() -> List[str]:
+    """Return specific code and configuration hotspots for developers to inspect."""
+    return [
+        "Worker Concurrency: Scale WSGI/ASGI worker pool (e.g. uvicorn --workers N, gunicorn -w N).",
+        "Database Connection Pool: Tune CONN_MAX_AGE and max pool connections in database config.",
+        "Response Buffering: Add pagination limit/offset and gzip compression to heavy GET routes.",
+        "Caching Layer: Introduce Redis or in-memory caching for repeated analytical and dashboard queries."
+    ]
+
+
+def evaluate_reliability_sla(
+    scenarios: List[ScenarioMix],
+    servers: List[str],
+    concurrent_list: List[int],
+    burst_seconds: int = 120
+) -> Dict[str, Any]:
+    """Evaluate capacity SLA across scenario, server, and concurrency combinations."""
+    passed, failed, failed_evals = 0, 0, []
+    max_u, max_r, max_e = 0.0, 0.0, 0.0
+    for sc in scenarios:
+        for s_key in servers:
+            for c in concurrent_list:
+                ok, util, rps, egress = _evaluate_single_tier(sc, s_key, c, burst_seconds)
+                max_u, max_r, max_e = max(max_u, util), max(max_r, rps), max(max_e, egress)
+                if ok:
+                    passed += 1
+                else:
+                    failed += 1
+                    failed_evals.append({"server": SERVER_PROFILES[s_key]['label'], "concurrent": c, "util": util})
+
+    total = passed + failed
+    return {
+        "total": total,
+        "passed": passed,
+        "failed": failed,
+        "pass_rate": (passed / total * 100.0) if total > 0 else 100.0,
+        "max_util": max_u,
+        "causes": diagnose_overload_causes(failed_evals, max_r, max_e),
+        "remediations": get_remediation_guidelines() if failed > 0 else []
+    }
+
+
+def print_diagnostic_report(summary: Dict[str, Any]):
+    """Render human-readable bottleneck diagnostics and remediation guidelines."""
+    mem_str = ""
+    if get_session_memory_mb:
+        mem = get_session_memory_mb()
+        if mem.get("peak_mb", 0) > 0:
+            mem_str = f" • Session RAM: {mem['current_mb']:.1f} MB (Peak: {mem['peak_mb']:.1f} MB)"
+
+    if summary["failed"] == 0:
+        print(f"\n{Colors.BRIGHT_GREEN}✔ All capacity thresholds verified within SLA (100% pass rate){mem_str}.{Colors.RESET}\n")
+        return
+
+    rate = summary["pass_rate"]
+    is_tolerable = rate >= 70.0
+    verdict = "PASSED WITH CAUTION (Tolerable SLA limit)" if is_tolerable else "CAPACITY FAILURE"
+    badge_color = Colors.YELLOW if is_tolerable else Colors.BRIGHT_RED
+
+    max_u = summary['max_util']
+    if max_u > 100.0:
+        util_str = f"OVERLOAD ({max_u / 100.0:.1f}x)"
+    else:
+        util_str = f"{max_u:.0f}%"
+
+    print("\n" + "=" * 78)
+    print(" ⚠️  RELIABILITY BOTTLENECK & CAPACITY DEGRADATION DIAGNOSTICS")
+    print("=" * 78)
+    print(f" Benchmark Verdict  : {badge_color}{verdict}{Colors.RESET}")
+    print(f" Capacity Pass Rate : {summary['pass_rate']:.1f}% ({summary['passed']} passed, {summary['failed']} overloaded)")
+    print(f" Peak Utilization   : {util_str}")
+    if mem_str:
+        print(f" Session Memory     :{mem_str.replace(' • ', ' ')}")
+    print("\n 🔍 Identified Root Causes:")
+    for cause in summary["causes"]:
+        print(f"  • {cause}")
+    print("\n 💡 Lines & Hotspots to Take Note Of:")
+    for rem in summary["remediations"]:
+        print(f"  • {rem}")
+    print("=" * 78 + "\n")
+
+
 def run_simulation(
     scenarios: List[ScenarioMix],
     servers: List[str],
     concurrent_list: List[int],
     burst_seconds: int = 120,
     total_sample_users: int = 2000,
-):
+) -> Dict[str, Any]:
     """Execute and render the analytical concurrent load simulation."""
     print("=" * 78)
     print(" ⚡ UniversalTester: Concurrent Load & Reliability Simulation Engine")
@@ -278,7 +405,8 @@ def run_simulation(
                 agg = simulate_scenario(concurrent, scenario, burst_seconds)
                 util = (agg['arrival_rps'] / cap_rps) * 100.0 if cap_rps > 0 else 999.0
                 status, desc = assess_reliability_state(util)
-                print(f"     └─ {concurrent:>5,} users ──► Util: {util:>5.0f}% [{status:<10}] {desc}")
+                u_fmt = f"{util:>5.0f}%" if util <= 100.0 else f"OVERLOAD ({util/100:.1f}x)"
+                print(f"     └─ {concurrent:>5,} users ──► Util: {u_fmt:<16} [{status:<10}] {desc}")
 
     print("\n" + "=" * 78)
     print(" 💡 Sizing & Reliability Guidance:")
@@ -286,6 +414,10 @@ def run_simulation(
     print("  • Multi-Worker Host Server    : Sustains 500-1,000 concurrent with moderate queuing.")
     print("  • Scaled Cloud Cluster        : Recommended for peak events exceeding 1,000+ users.")
     print("=" * 78 + "\n")
+
+    summary = evaluate_reliability_sla(scenarios, servers, concurrent_list, burst_seconds)
+    print_diagnostic_report(summary)
+    return summary
 
 
 def main():
@@ -322,6 +454,12 @@ def main():
         default=2000,
         help='Total user population sample (default: 2000)',
     )
+    parser.add_argument(
+        '--json-output',
+        type=str,
+        default=None,
+        help='Optional path to write structured simulation metrics and diagnostics to a JSON file',
+    )
 
     args = parser.parse_args()
 
@@ -350,13 +488,21 @@ def main():
         else list(SERVER_PROFILES.keys())
     )
 
-    run_simulation(
+    summary = run_simulation(
         scenarios=scenarios,
         servers=servers,
         concurrent_list=concurrent_list,
         burst_seconds=args.burst_seconds,
         total_sample_users=total_users,
     )
+
+    if args.json_output:
+        import json
+        try:
+            with open(args.json_output, 'w', encoding='utf-8') as f:
+                json.dump(summary, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Failed to write JSON output to {args.json_output}: {e}")
 
 
 if __name__ == '__main__':

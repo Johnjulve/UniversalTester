@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "universal-tester"
-version = "1.2.0"
+version = "2.0.0"
 description = "Universal 5-pillar software testing, concurrency simulation, and security analysis engine."
 readme = "README.md"
 license = { text = "MIT" }
@@ -35,22 +35,34 @@ classifiers = [
 ]
 
 [project.scripts]
-testx = "tester:main"
+testx = "cli.main:main"
+testx-gui = "gui.main:main"
 
 [project.optional-dependencies]
+gui = [
+    "customtkinter>=6.0.0",
+]
 benchmarks = [
     "requests>=2.28.0",
     "locust>=2.15.0",
     "pytest>=7.0.0",
     "colorama>=0.4.6",
 ]
+all = [
+    "customtkinter>=6.0.0",
+    "requests>=2.28.0",
+    "locust>=2.15.0",
+    "pytest>=7.0.0",
+    "colorama>=0.4.6",
+]
+
 
 [tool.setuptools]
 py-modules = ["tester"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["core*", "adapters*", "Performance*"]
+include = ["core*", "adapters*", "Performance*", "cli*", "gui*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.json"]

@@ -1,6 +1,6 @@
 # ⚡ UniversalTester (`testx`): Universal 5-Pillar Test & Simulation Engine
 
-> **Version 1.2.0** • 100% Python Standard Library Core • Zero Required Dependencies
+> **Version 2.0.0** • 100% Python Standard Library Core • Desktop GUI & CLI
 
 **UniversalTester** is an independent, framework-agnostic testing, simulation, and security analysis engine. It provides a standardized **5-pillar testing methodology** to assess any software project across adaptivity, algorithmic correctness, performance latency, concurrency reliability, and security vulnerabilities.
 
@@ -32,6 +32,11 @@ pip install -e .
 Now `testx` is available directly from any terminal or project directory!
 
 ```bash
+# Launch the Modern Desktop GUI
+testx --gui
+# or directly:
+python tester.py --gui
+
 # Run the unified 5-pillar assessment on the current project
 testx all
 
@@ -146,7 +151,7 @@ Copy `tester_config.example.json` to `tester_config.json`:
 
 ```json
 {
-  "version": "1.2.0",
+  "version": "2.0.0",
   "app_name": "Universal Tester",
   "projects": {
     "1": {
@@ -170,3 +175,10 @@ Copy `tester_config.example.json` to `tester_config.json`:
 ```
 
 > **Dynamic Virtual Environments**: If `"python_env"` is omitted or left empty, UniversalTester automatically searches `.venv`, `venv`, and `env` inside the project root, backend folder, and parent paths.
+
+## Standalone Executable (Windows)
+
+UniversalTester is available as a portable standalone executable (`UniversalTester.exe`) in the [GitHub Releases](https://github.com/Johnjulve/UniversalTester/releases):
+- **Zero Python Installation**: Portable single-file binary with all dependencies (CustomTkinter, Pillow, runners) bundled.
+- **Desktop Double-Click**: Launches the CustomTkinter Desktop GUI seamlessly with console auto-suppression.
+- **Terminal CLI**: Run commands directly in PowerShell or CMD (`UniversalTester.exe run <project>`, `UniversalTester.exe doctor`, `UniversalTester.exe --help`).

@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Dict, Any, Set, Optional
+from typing import Dict, Any, Set, Optional, List
 
 from adapters.base import BaseAdapter, Capability
 from core.models import TestResult, TestStatus
@@ -169,19 +169,45 @@ class NodeAdapter(BaseAdapter):
         print(f"{Colors.DIM}○ {suite_name}: {reason}{Colors.RESET}")
         return TestResult.unavailable(suite_name, reason)
 
+    def _run_process(self, cmd: List[str], cwd: str, label: str) -> TestResult:
+        """Run a subprocess and stream output with status reporting and GUI capture support."""
+        print(f"\n{Colors.DIM}Executing: {' '.join(cmd)}{Colors.RESET}\n")
+        start_time = time.time()
+        try:
+            process = subprocess.Popen(
+                cmd,
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                bufsize=1
+            )
+            try:
+                for line in iter(process.stdout.readline, ''):
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+            finally:
+                if process.stdout:
+                    process.stdout.close()
+            process.wait()
+            elapsed = time.time() - start_time
+            if process.returncode == 0:
+                print(f"\n{Colors.BRIGHT_GREEN}✔ {label} PASSED ({elapsed:.2f}s){Colors.RESET}")
+            else:
+                print(f"\n{Colors.BRIGHT_RED}✘ {label} FAILED with exit code {process.returncode} ({elapsed:.2f}s){Colors.RESET}")
+            return TestResult.from_bool(label, process.returncode == 0, duration=elapsed)
+        except Exception as e:
+            print(f"\n{Colors.BRIGHT_RED}✘ Process execution error: {e}{Colors.RESET}")
+            return TestResult(suite_name=label, status=TestStatus.ERROR, failed=1, errors=[str(e)])
+
     def run_algorithms_test(self) -> TestResult:
         """Run the universal CS algorithm benchmarks."""
         print_section_header(f"Running Algorithm Benchmarks for {self.name}")
         algo_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Performance', 'algorithm_tester.py'))
-        start_time = time.time()
-        try:
-            res = subprocess.run([sys.executable, algo_script])
-            elapsed = time.time() - start_time
-            success = (res.returncode == 0)
-            return TestResult.from_bool(f"{self.name} Algorithms", success, duration=elapsed)
-        except Exception as e:
-            print(f"{Colors.BRIGHT_RED}Error running algorithm benchmarks: {e}{Colors.RESET}")
-            return TestResult(suite_name=f"{self.name} Algorithms", status=TestStatus.ERROR, failed=1, errors=[str(e)])
+        cmd = [sys.executable, algo_script]
+        return self._run_process(cmd, cwd=self.project_path, label=f"{self.name} Algorithms")
 
     def run_overall_test(self) -> TestResult:
         """Run full test suite: components, algorithms, and health check with consolidated summary."""
