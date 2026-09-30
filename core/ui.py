@@ -140,3 +140,34 @@ def get_user_input(prompt_text: str = "> ") -> str:
     except (KeyboardInterrupt, EOFError):
         print(f"\n\n{Colors.YELLOW}Operation cancelled by user.{Colors.RESET}")
         sys.exit(0)
+
+
+def get_session_memory_mb() -> dict:
+    """Return current and peak working set RAM in megabytes for the current session."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import wintypes
+            class PMC(ctypes.Structure):
+                _fields_ = [
+                    ('cb', wintypes.DWORD), ('PageFaultCount', wintypes.DWORD),
+                    ('PeakWorkingSetSize', ctypes.c_size_t), ('WorkingSetSize', ctypes.c_size_t),
+                    ('QuotaPeakPagedPoolUsage', ctypes.c_size_t), ('QuotaPagedPoolUsage', ctypes.c_size_t),
+                    ('QuotaPeakNonPagedPoolUsage', ctypes.c_size_t), ('QuotaNonPagedPoolUsage', ctypes.c_size_t),
+                    ('PagefileUsage', ctypes.c_size_t), ('PeakPagefileUsage', ctypes.c_size_t),
+                ]
+            pmc = PMC()
+            pmc.cb = ctypes.sizeof(PMC)
+            fn = ctypes.windll.kernel32.K32GetProcessMemoryInfo
+            fn.argtypes = [wintypes.HANDLE, ctypes.POINTER(PMC), wintypes.DWORD]
+            fn.restype = wintypes.BOOL
+            if fn(ctypes.windll.kernel32.GetCurrentProcess(), ctypes.byref(pmc), pmc.cb):
+                return {"current_mb": pmc.WorkingSetSize / 1048576, "peak_mb": pmc.PeakWorkingSetSize / 1048576}
+        except Exception:
+            pass
+    try:
+        import resource
+        peak_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024.0 if sys.platform != 'darwin' else 1048576.0)
+        return {"current_mb": peak_mb, "peak_mb": peak_mb}
+    except Exception:
+        return {"current_mb": 0.0, "peak_mb": 0.0}

@@ -24,6 +24,7 @@ except ImportError:
 from core.service import TesterService
 from core.models import RunRequest, RunResult
 from core.events import ProgressEvent
+from core.ui import get_session_memory_mb
 from adapters.base import Capability
 from gui.worker import AsyncTestRunner
 from cli.interactive import load_config
@@ -122,23 +123,23 @@ if HAS_CTK:
             )
             self.active_test_lbl.pack(side="left")
 
-            # Concurrency Load Selector
-            concurrency_box = ctk.CTkFrame(active_row, fg_color="transparent")
-            concurrency_box.pack(side="right")
+            # Concurrency Load Selector (Editable ComboBox allowing custom numbers)
+            self.concurrency_box = ctk.CTkFrame(active_row, fg_color="transparent")
+            self.concurrency_box.pack(side="right")
 
             ctk.CTkLabel(
-                concurrency_box,
+                self.concurrency_box,
                 text="Load Users:",
                 font=ctk.CTkFont(size=11, weight="bold"),
                 text_color="gray"
             ).pack(side="left", padx=(0, 4))
 
             self.concurrency_var = ctk.StringVar(value="200")
-            self.concurrency_menu = ctk.CTkOptionMenu(
-                concurrency_box,
+            self.concurrency_menu = ctk.CTkComboBox(
+                self.concurrency_box,
                 variable=self.concurrency_var,
                 values=["50", "100", "200", "500", "1000", "2000"],
-                width=85,
+                width=90,
                 height=26,
                 font=ctk.CTkFont(size=11),
                 command=self._on_concurrency_change
@@ -243,6 +244,7 @@ if HAS_CTK:
 
             if self.active_capability and self.active_capability in self.cap_names:
                 self.active_test_var.set(f"Active Test: {self.cap_names[self.active_capability]}")
+            self._update_concurrency_visibility(self.active_capability)
 
         def _set_active_capability(self, capability: str):
             """Highlight the selected capability button in blue and reset others."""
@@ -259,10 +261,21 @@ if HAS_CTK:
                         hover_color=("gray65", "gray35")
                     )
 
-        def _on_concurrency_change(self, value: str):
+        def _update_concurrency_visibility(self, capability: str):
+            """Show concurrency selector only for Full Assessment and Pillar 4 Simulation."""
+            needs = capability in (
+                "full_suite", "simulation", Capability.SIMULATION, "all", "overall", "reliability"
+            )
+            if needs:
+                self.concurrency_box.pack(side="right")
+            else:
+                self.concurrency_box.pack_forget()
+
+        def _on_concurrency_change(self, value: Optional[str] = None):
             """Update active test label and prompt when user changes concurrency."""
+            val = self.concurrency_var.get().strip() or "200"
             if self.active_capability in ("simulation", Capability.SIMULATION):
-                label = f"Pillar 4: Concurrency Simulation ({value} Users)"
+                label = f"Pillar 4: Concurrency Simulation ({val} Users)"
                 self.active_test_var.set(f"Active Test: {label}")
                 self.step_var.set(f"Ready to run {label}. Click 'Start Test' to begin.")
 
@@ -272,9 +285,11 @@ if HAS_CTK:
                 return
 
             self._set_active_capability(capability)
+            self._update_concurrency_visibility(capability)
+            val = self.concurrency_var.get().strip() or "200"
             label = self.cap_names.get(capability, capability)
             if capability in ("simulation", Capability.SIMULATION):
-                label = f"Pillar 4: Concurrency Simulation ({self.concurrency_var.get()} Users)"
+                label = f"Pillar 4: Concurrency Simulation ({val} Users)"
             self.active_test_var.set(f"Active Test: {label}")
             self.status_var.set("● READY")
             self.status_lbl.configure(text_color="#10b981")
@@ -298,12 +313,14 @@ if HAS_CTK:
             if self.runner.is_running():
                 return
 
-            users_val = int(self.concurrency_var.get()) if self.concurrency_var.get().isdigit() else 200
+            raw_val = self.concurrency_var.get().strip()
+            users_val = int(raw_val) if raw_val.isdigit() and int(raw_val) > 0 else 200
             label = self.cap_names.get(capability, capability)
             if capability in ("simulation", Capability.SIMULATION):
                 label = f"Pillar 4: Concurrency Simulation ({users_val} Users)"
 
             self._set_active_capability(capability)
+            self._update_concurrency_visibility(capability)
             self.active_test_var.set(f"Active Test: {label}")
             self.status_var.set("● RUNNING...")
             self.status_lbl.configure(text_color="#38bdf8")
@@ -358,8 +375,13 @@ if HAS_CTK:
                             state="normal"
                         )
                         if res.is_success:
-                            self.status_var.set("✔ PASSED")
-                            self.status_lbl.configure(text_color="#10b981")
+                            failed_cnt = res.metrics.get("failed", 0) if res.metrics else 0
+                            if failed_cnt > 0:
+                                self.status_var.set("⚠ PASSED (CAUTION)")
+                                self.status_lbl.configure(text_color="#f59e0b")
+                            else:
+                                self.status_var.set("✔ PASSED")
+                                self.status_lbl.configure(text_color="#10b981")
                         elif res.status == "canceled":
                             self.status_var.set("✖ CANCELED")
                             self.status_lbl.configure(text_color="#f59e0b")
@@ -368,7 +390,10 @@ if HAS_CTK:
                             self.status_lbl.configure(text_color="#ef4444")
 
                         self.progress_bar.set(1.0)
-                        summary = f"\n──────────────────────────────────────────────────\nRun ID: {res.run_id} | Status: {res.status} | Duration: {res.duration_s}s\n"
+                        mem = get_session_memory_mb()
+                        ram_str = f" • Session RAM: {mem['current_mb']:.1f} MB (Peak: {mem['peak_mb']:.1f} MB)" if mem['peak_mb'] > 0 else ""
+                        self.step_var.set(f"Completed in {res.duration_s:.2f}s{ram_str}")
+                        summary = f"\n──────────────────────────────────────────────────\nRun ID: {res.run_id} | Status: {res.status} | Duration: {res.duration_s}s{ram_str}\n"
                         if res.metrics:
                             summary += f"Metrics: {res.metrics}\n"
                         self._append_log(summary)

@@ -9,7 +9,10 @@ import time
 import os
 from typing import Dict, List, Any, Optional
 
-from core.ui import Colors, get_terminal_width, print_divider, visible_len, pad_left, pad_center
+from core.ui import (
+    Colors, get_terminal_width, print_divider, visible_len, pad_left, pad_center,
+    get_session_memory_mb
+)
 
 if hasattr(sys.stdout, 'reconfigure'):
     try:
@@ -319,11 +322,13 @@ class AnalyticalTestReporter:
         else:
             grade = f"{Colors.BOLD}{Colors.BRIGHT_RED}Grade F{Colors.RESET} (Critical failure count, immediate fix required)"
 
+        mem = get_session_memory_mb()
         print(f"\n{Colors.BOLD}{Colors.WHITE}📊 Performance & Quality Analysis:{Colors.RESET}")
         print(f"  • {Colors.GRAY}Execution Time   :{Colors.RESET} {self.duration_seconds:.2f}s")
         print(f"  • {Colors.GRAY}Average Per Test :{Colors.RESET} {avg_time:.2f}s / test")
         print(f"  • {Colors.GRAY}Pass Rate        :{Colors.RESET} {pass_rate_str}")
-        print(f"  • {Colors.GRAY}System Health    :{Colors.RESET} {grade}\n")
+        print(f"  • {Colors.GRAY}System Health    :{Colors.RESET} {grade}")
+        print(f"  • {Colors.GRAY}Memory Used      :{Colors.RESET} {mem['current_mb']:.1f} MB (Peak Working Set: {mem['peak_mb']:.1f} MB)\n")
 
         return self.failed_tests == 0 and active_tests > 0
 
@@ -370,14 +375,21 @@ def render_overall_summary(project_name: str, results: Dict[str, Any]) -> Any:
             c_fail = _pad_center("-", col_fail)
             c_stat = _pad_center(f"{Colors.DIM}○ UNAVAIL{Colors.RESET}", col_stat)
             total_skipped += 1
-        elif hasattr(result, 'is_success') and result.is_success:
+        elif getattr(result, 'status', None) == TestStatus.PASSED or (hasattr(result, 'is_success') and result.is_success):
             c_name = _pad_left(f" {Colors.CYAN}{title}{Colors.RESET}", col_mod)
-            c_tot = _pad_center(str(result.total or 1), col_tot)
-            c_pass = _pad_center(str(result.passed or 1), col_pass)
-            c_fail = _pad_center("0", col_fail)
-            c_stat = _pad_center(f"{Colors.BRIGHT_GREEN}✔ PASS{Colors.RESET}", col_stat)
-            total_exec += result.total or 1
-            total_passed += result.passed or 1
+            r_tot = getattr(result, 'total', 1) or 1
+            r_pass = getattr(result, 'passed', 1) or 1
+            r_fail = getattr(result, 'failed', 0)
+            c_tot = _pad_center(str(r_tot), col_tot)
+            c_pass = _pad_center(str(r_pass), col_pass)
+            c_fail = _pad_center(str(r_fail), col_fail)
+            badge = f"{Colors.BRIGHT_GREEN}✔ PASS{Colors.RESET}" if r_fail == 0 else f"{Colors.YELLOW}⚠ CAUTION{Colors.RESET}"
+            c_stat = _pad_center(badge, col_stat)
+            total_exec += r_tot
+            total_passed += r_pass
+            total_failed += r_fail
+            if hasattr(result, 'errors') and result.errors:
+                errors.extend(result.errors)
         else:
             c_name = _pad_left(f" {Colors.CYAN}{title}{Colors.RESET}", col_mod)
             r_tot = getattr(result, 'total', 1) or 1
@@ -398,9 +410,12 @@ def render_overall_summary(project_name: str, results: Dict[str, Any]) -> Any:
 
     # Total Footer
     print(f"{Colors.DIM}├{'─' * col_mod}┼{'─' * col_tot}┼{'─' * col_pass}┼{'─' * col_fail}┼{'─' * col_stat}┤{Colors.RESET}")
-    overall_status = f"{Colors.BOLD}{Colors.BRIGHT_GREEN}100% OK{Colors.RESET}" if all_passed and total_passed > 0 else f"{Colors.BOLD}{Colors.BRIGHT_RED}FAILED{Colors.RESET}"
-    if total_exec == 0 and total_skipped > 0:
+    if all_passed and total_passed > 0:
+        overall_status = f"{Colors.BOLD}{Colors.BRIGHT_GREEN}100% OK{Colors.RESET}" if total_failed == 0 else f"{Colors.BOLD}{Colors.YELLOW}PASSED (CAUTION){Colors.RESET}"
+    elif total_exec == 0 and total_skipped > 0:
         overall_status = f"{Colors.DIM}UNAVAILABLE{Colors.RESET}"
+    else:
+        overall_status = f"{Colors.BOLD}{Colors.BRIGHT_RED}FAILED{Colors.RESET}"
 
     f_name = _pad_left(f" {Colors.BOLD}TOTAL ACTIVE{Colors.RESET}", col_mod)
     f_tot = _pad_center(f"{Colors.BOLD}{total_exec}{Colors.RESET}", col_tot)
@@ -414,14 +429,21 @@ def render_overall_summary(project_name: str, results: Dict[str, Any]) -> Any:
     pass_ratio = (total_passed / total_exec) if total_exec > 0 else 1.0
     if total_exec == 0:
         grade = f"{Colors.DIM}Grade N/A (Only unavailable capabilities requested){Colors.RESET}"
-    elif all_passed:
+    elif all_passed and total_failed == 0:
         grade = f"{Colors.BOLD}{Colors.BRIGHT_GREEN}Grade A+{Colors.RESET} (100% contracts verified)"
+    elif all_passed and total_failed > 0:
+        grade = f"{Colors.BOLD}{Colors.YELLOW}Grade B+{Colors.RESET} (Passed with capacity warnings within tolerable limits)"
     elif pass_ratio >= 0.90:
         grade = f"{Colors.BOLD}{Colors.YELLOW}Grade B{Colors.RESET} (Minor failures detected)"
+    elif pass_ratio >= 0.75:
+        grade = f"{Colors.BOLD}{Colors.YELLOW}Grade C{Colors.RESET} (Tolerable benchmark limit reached)"
     else:
         grade = f"{Colors.BOLD}{Colors.BRIGHT_RED}Grade F{Colors.RESET} (Critical failure count)"
 
-    print(f"\n{Colors.BOLD}{Colors.WHITE}📊 Overall Health Grade:{Colors.RESET} {grade}\n")
+    mem = get_session_memory_mb()
+    print(f"\n{Colors.BOLD}{Colors.WHITE}📊 Overall Health & Resources:{Colors.RESET}")
+    print(f"  • {Colors.GRAY}Health Grade     :{Colors.RESET} {grade}")
+    print(f"  • {Colors.GRAY}Session Memory   :{Colors.RESET} {mem['current_mb']:.1f} MB RAM (Peak Working Set: {mem['peak_mb']:.1f} MB)\n")
 
     if errors:
         print(f"{Colors.BOLD}{Colors.YELLOW}🔍 Diagnostic Highlights & Areas to Inspect:{Colors.RESET}")

@@ -236,7 +236,7 @@ def assess_reliability_state(util_pct: float) -> Tuple[str, str]:
 
 
 try:
-    from core.ui import Colors
+    from core.ui import Colors, get_session_memory_mb
 except ImportError:
     class Colors:
         RESET = "\033[0m"
@@ -246,6 +246,7 @@ except ImportError:
         CYAN = "\033[36m"
         BOLD = "\033[1m"
         DIM = "\033[2m"
+    get_session_memory_mb = None
 
 
 def _evaluate_single_tier(
@@ -320,15 +321,29 @@ def evaluate_reliability_sla(
 
 def print_diagnostic_report(summary: Dict[str, Any]):
     """Render human-readable bottleneck diagnostics and remediation guidelines."""
+    mem_str = ""
+    if get_session_memory_mb:
+        mem = get_session_memory_mb()
+        if mem.get("peak_mb", 0) > 0:
+            mem_str = f" • Session RAM: {mem['current_mb']:.1f} MB (Peak: {mem['peak_mb']:.1f} MB)"
+
     if summary["failed"] == 0:
-        print(f"\n{Colors.BRIGHT_GREEN}✔ All capacity thresholds verified within SLA (100% pass rate).{Colors.RESET}\n")
+        print(f"\n{Colors.BRIGHT_GREEN}✔ All capacity thresholds verified within SLA (100% pass rate){mem_str}.{Colors.RESET}\n")
         return
+
+    rate = summary["pass_rate"]
+    is_tolerable = rate >= 75.0
+    verdict = "PASSED WITH CAUTION (Tolerable SLA limit)" if is_tolerable else "CAPACITY FAILURE"
+    badge_color = Colors.YELLOW if is_tolerable else Colors.BRIGHT_RED
 
     print("\n" + "=" * 78)
     print(" ⚠️  RELIABILITY BOTTLENECK & CAPACITY DEGRADATION DIAGNOSTICS")
     print("=" * 78)
+    print(f" Benchmark Verdict  : {badge_color}{verdict}{Colors.RESET}")
     print(f" Capacity Pass Rate : {summary['pass_rate']:.1f}% ({summary['passed']} passed, {summary['failed']} overloaded)")
     print(f" Peak Utilization   : {summary['max_util']:.0f}%")
+    if mem_str:
+        print(f" Session Memory     :{mem_str.replace(' • ', ' ')}")
     print("\n 🔍 Identified Root Causes:")
     for cause in summary["causes"]:
         print(f"  • {cause}")

@@ -331,6 +331,32 @@ class TestPhase8DesktopGUI(unittest.TestCase):
         self.assertEqual(summary_low["pass_rate"], 100.0)
         self.assertEqual(len(summary_low["causes"]), 0)
 
+    def test_session_memory_tracking(self):
+        from core.ui import get_session_memory_mb
+        mem = get_session_memory_mb()
+        self.assertIsInstance(mem, dict)
+        self.assertIn("current_mb", mem)
+        self.assertIn("peak_mb", mem)
+        self.assertGreaterEqual(mem["peak_mb"], 0.0)
+
+    def test_benchmark_caution_sla_threshold(self):
+        from core.models import TestResult, TestStatus
+        from core.reporter import render_overall_summary
+        import io, contextlib
+
+        res_caution = TestResult(
+            suite_name="Simulation (2000 Users)",
+            status=TestStatus.PASSED,
+            passed=20,
+            failed=3, # 3 overloaded tiers out of 23 = 87% pass rate (within tolerable SLA)
+            errors=["High load queue buildup"]
+        )
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            overall = render_overall_summary("TestTarget", {"simulation": res_caution})
+        self.assertEqual(overall.status, TestStatus.PASSED)
+        self.assertIn("CAUTION", out.getvalue())
+
     def test_gui_concurrency_selector(self):
         try:
             import customtkinter as ctk
@@ -342,17 +368,28 @@ class TestPhase8DesktopGUI(unittest.TestCase):
         try:
             self.assertTrue(hasattr(app, "concurrency_var"))
             self.assertTrue(hasattr(app, "concurrency_menu"))
+            self.assertTrue(hasattr(app, "concurrency_box"))
             self.assertEqual(app.concurrency_var.get(), "200")
 
-            # Verify options include 2000
+            # 1. Verify presets and ComboBox custom support
             options = app.concurrency_menu.cget("values")
             self.assertIn("2000", options)
             self.assertIn("50", options)
 
-            # Change concurrency to 2000 and select simulation
-            app.concurrency_var.set("2000")
+            # 2. Conditional visibility: hidden on components test
+            app._select_capability("components")
+            self.assertEqual(app.concurrency_box.winfo_manager(), "")
+
+            # 3. Conditional visibility: visible on simulation and full_suite
             app._select_capability("simulation")
-            self.assertIn("2000 Users", app.active_test_var.get())
+            self.assertEqual(app.concurrency_box.winfo_manager(), "pack")
+            app._select_capability("full_suite")
+            self.assertEqual(app.concurrency_box.winfo_manager(), "pack")
+
+            # 4. Custom user count rather than just fixed 2000
+            app.concurrency_var.set("3500")
+            app._select_capability("simulation")
+            self.assertIn("3500 Users", app.active_test_var.get())
         finally:
             app.destroy()
 
