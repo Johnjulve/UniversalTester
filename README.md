@@ -175,3 +175,10 @@ Copy `tester_config.example.json` to `tester_config.json`:
 ```
 
 > **Dynamic Virtual Environments**: If `"python_env"` is omitted or left empty, UniversalTester automatically searches `.venv`, `venv`, and `env` inside the project root, backend folder, and parent paths.
+
+## Standalone Executable (Windows)
+
+UniversalTester is available as a portable standalone executable (`UniversalTester.exe`) in the [GitHub Releases](https://github.com/Johnjulve/UniversalTester/releases):
+- **Zero Python Installation**: Portable single-file binary with all dependencies (CustomTkinter, Pillow, runners) bundled.
+- **Desktop Double-Click**: Launches the CustomTkinter Desktop GUI seamlessly with console auto-suppression.
+- **Terminal CLI**: Run commands directly in PowerShell or CMD (`UniversalTester.exe run <project>`, `UniversalTester.exe doctor`, `UniversalTester.exe --help`).

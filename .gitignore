@@ -10,6 +10,8 @@ venv/
 build/
 develop-eggs/
 dist/
+*.spec
+build_exe.py
 downloads/
 eggs/
 .eggs/

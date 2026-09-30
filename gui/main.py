@@ -41,6 +41,15 @@ if HAS_CTK:
 
         def __init__(self, service: Optional[TesterService] = None):
             super().__init__()
+            if sys.platform == "win32" and getattr(sys, "frozen", False):
+                try:
+                    import ctypes
+                    hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+                    if hwnd:
+                        ctypes.windll.user32.ShowWindow(hwnd, 0)
+                except Exception:
+                    pass
+
             self.service = service or TesterService()
             self.runner = AsyncTestRunner(self.service)
             self.event_queue: queue.Queue = queue.Queue()

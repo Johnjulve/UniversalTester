@@ -22,7 +22,7 @@ def main(args: Optional[List[str]] = None) -> int:
     parser = build_parser()
     parsed = parser.parse_args(args)
 
-    if parsed.gui:
+    if parsed.gui or (getattr(sys, "frozen", False) and not parsed.command):
         try:
             from gui.main import main as gui_main
             return gui_main()
