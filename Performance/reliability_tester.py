@@ -267,7 +267,7 @@ def diagnose_overload_causes(
         return []
     worst = max(failed_evals, key=lambda x: x["util"])
     overload_ratio = worst['util'] / 100.0
-    load_desc = f"{worst['util']:.0f}% utilization" if worst['util'] <= 100.0 else f"100% saturated ({overload_ratio:.1f}x capacity demand)"
+    load_desc = f"{worst['util']:.0f}% utilization" if worst['util'] <= 100.0 else f"OVERLOAD ({overload_ratio:.1f}x)"
     causes = [
         f"Server capacity exceeded at {worst['concurrent']:,} concurrent users "
         f"({worst['server']}: {load_desc}, peak {peak_rps:.1f} req/s)."
@@ -340,7 +340,7 @@ def print_diagnostic_report(summary: Dict[str, Any]):
 
     max_u = summary['max_util']
     if max_u > 100.0:
-        util_str = f"100% Saturated ({max_u / 100.0:.1f}x capacity demand / {max_u:.0f}% offered load)"
+        util_str = f"OVERLOAD ({max_u / 100.0:.1f}x)"
     else:
         util_str = f"{max_u:.0f}%"
 
@@ -405,8 +405,8 @@ def run_simulation(
                 agg = simulate_scenario(concurrent, scenario, burst_seconds)
                 util = (agg['arrival_rps'] / cap_rps) * 100.0 if cap_rps > 0 else 999.0
                 status, desc = assess_reliability_state(util)
-                u_fmt = f"{util:>5.0f}%" if util <= 100.0 else f"{util/100:>4.1f}x cap"
-                print(f"     └─ {concurrent:>5,} users ──► Util: {u_fmt:<9} [{status:<10}] {desc}")
+                u_fmt = f"{util:>5.0f}%" if util <= 100.0 else f"OVERLOAD ({util/100:.1f}x)"
+                print(f"     └─ {concurrent:>5,} users ──► Util: {u_fmt:<16} [{status:<10}] {desc}")
 
     print("\n" + "=" * 78)
     print(" 💡 Sizing & Reliability Guidance:")
