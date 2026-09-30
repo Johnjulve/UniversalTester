@@ -2,7 +2,7 @@
 Core data models and standardized test result structures.
 """
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 class TestStatus:
     """Standardized test execution status strings"""
@@ -92,4 +92,64 @@ class TestResult:
             duration=0.0,
             errors=[reason] if reason else [],
             raw_output=reason
-        )
+        )
+
+
+@dataclass
+class RunRequest:
+    """Serializable request input for TesterService."""
+    capability: str
+    project_path: str = ""
+    options: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "capability": self.capability,
+            "project_path": self.project_path,
+            "options": dict(self.options)
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "RunRequest":
+        return cls(
+            capability=data.get("capability", "full_suite"),
+            project_path=data.get("project_path", ""),
+            options=data.get("options", {})
+        )
+
+
+@dataclass
+class RunResult:
+    """Standardized, serializable output returned by TesterService."""
+    run_id: str
+    status: str
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    duration_s: float = 0.0
+    details: List[Dict[str, Any]] = field(default_factory=list)
+    raw_output: str = ""
+
+    @property
+    def is_success(self) -> bool:
+        return self.status in ("PASSED", "passed")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "status": self.status,
+            "metrics": dict(self.metrics),
+            "duration_s": round(self.duration_s, 4),
+            "details": list(self.details),
+            "raw_output": self.raw_output
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "RunResult":
+        return cls(
+            run_id=data.get("run_id", ""),
+            status=data.get("status", "error"),
+            metrics=data.get("metrics", {}),
+            duration_s=float(data.get("duration_s", 0.0)),
+            details=data.get("details", []),
+            raw_output=data.get("raw_output", "")
+        )
+
