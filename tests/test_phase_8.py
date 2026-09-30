@@ -140,7 +140,49 @@ class TestPhase8ModularCLI(unittest.TestCase):
         self.assertEqual(code, 0)
 
 
+class TestPhase8DesktopGUI(unittest.TestCase):
+    """Test suite for desktop GUI components and async runner."""
+
+    def test_async_runner_execution(self):
+        import time
+        from core.service import TesterService
+        from gui.worker import AsyncTestRunner
+
+        service = TesterService()
+        runner = AsyncTestRunner(service)
+        completed_results = []
+
+        runner.start_run(
+            request=RunRequest(capability="health"),
+            on_event=lambda e: None,
+            on_complete=lambda r: completed_results.append(r)
+        )
+
+        # Wait for worker thread to finish
+        for _ in range(50):
+            if completed_results:
+                break
+            time.sleep(0.05)
+
+        self.assertEqual(len(completed_results), 1)
+        self.assertTrue(completed_results[0].run_id.startswith("run-"))
+
+    def test_gui_app_initialization(self):
+        import tkinter as tk
+        from gui.main import UniversalTesterApp
+
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            app = UniversalTesterApp(root)
+            self.assertEqual(len(app.cap_buttons_frame.winfo_children()), 7)
+            self.assertEqual(app.status_var.get(), "Ready")
+        finally:
+            root.destroy()
+
+
 if __name__ == '__main__':
     unittest.main()
+
 
 
