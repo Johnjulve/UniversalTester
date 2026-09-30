@@ -44,14 +44,18 @@ class PythonAdapter(BaseAdapter):
         return True  # sys.executable is always available
 
     def supported_capabilities(self) -> Set[str]:
-        return {
-            Capability.COMPONENTS,
+        supported = {
             Capability.ALGORITHMS,
-            Capability.SIMULATION,
             Capability.BENCHMARKS,
             Capability.HEALTH,
             Capability.SECURITY,
         }
+        if self._detect_test_runner() is not None:
+            supported.add(Capability.COMPONENTS)
+        sim_script = os.path.join(self.performance_dir, 'reliability_tester.py')
+        if os.path.exists(sim_script):
+            supported.add(Capability.SIMULATION)
+        return supported
 
     def __init__(self, project_config: Dict[str, Any]):
         super().__init__(project_config)

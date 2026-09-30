@@ -267,6 +267,42 @@ class TestPhase8DesktopGUI(unittest.TestCase):
         finally:
             app.destroy()
 
+    def test_reporter_accurate_pass_rate_and_unavailable_capabilities(self):
+        import tempfile
+        import os
+        import io
+        import contextlib
+        from core.reporter import AnalyticalTestReporter
+        from core.service import TesterService
+
+        # 1. When 0 tests run, pass rate must be N/A (not fake 100%)
+        rep_empty = AnalyticalTestReporter("Empty Suite")
+        cap_empty = io.StringIO()
+        with contextlib.redirect_stdout(cap_empty):
+            res = rep_empty.render_dashboard()
+        self.assertFalse(res)
+        self.assertIn("N/A (0 active tests)", cap_empty.getvalue())
+        self.assertNotIn("100.0%", cap_empty.getvalue())
+
+        # 2. When failures occur, pass rate must reflect actual fraction
+        rep_partial = AnalyticalTestReporter("Partial Suite")
+        rep_partial.feed_line("test_1 (mod.C) ... ok")
+        rep_partial.feed_line("test_2 (mod.C) ... FAIL")
+        cap_partial = io.StringIO()
+        with contextlib.redirect_stdout(cap_partial):
+            res_partial = rep_partial.render_dashboard()
+        self.assertFalse(res_partial)
+        self.assertIn("50.0%", cap_partial.getvalue())
+
+        # 3. Dynamic availability: non-project directory flags capabilities as unavailable
+        with tempfile.TemporaryDirectory() as td:
+            service = TesterService()
+            caps = service.list_capabilities(td)
+            cap_dict = {c["id"]: c["available"] for c in caps}
+            self.assertFalse(cap_dict["components"])
+            self.assertFalse(cap_dict["algorithms"])
+            self.assertFalse(cap_dict["full_suite"])
+            self.assertTrue(cap_dict["health"])
 
 
 if __name__ == '__main__':

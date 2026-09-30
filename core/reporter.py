@@ -296,12 +296,18 @@ class AnalyticalTestReporter:
         print(f"{Colors.DIM}└{'─' * col_mod}┴{'─' * col_tot}┴{'─' * col_pass}┴{'─' * col_fail}┴{'─' * col_stat}┘{Colors.RESET}")
 
         # 3. Performance & Reliability Analytics
-        pass_ratio = (self.passed_tests / active_tests) if active_tests > 0 else 1.0
         bar_len = 20
-        filled = int(pass_ratio * bar_len)
-        bar_color = Colors.BRIGHT_GREEN if self.failed_tests == 0 else Colors.BRIGHT_RED
-        bar_visual = f"{bar_color}[{'█' * filled}{'░' * (bar_len - filled)}]{Colors.RESET}"
-        
+        if active_tests > 0:
+            pass_ratio = self.passed_tests / active_tests
+            filled = int(pass_ratio * bar_len)
+            bar_color = Colors.BRIGHT_GREEN if self.failed_tests == 0 else (Colors.YELLOW if pass_ratio >= 0.90 else Colors.BRIGHT_RED)
+            bar_visual = f"{bar_color}[{'█' * filled}{'░' * (bar_len - filled)}]{Colors.RESET}"
+            pass_rate_str = f"{pass_ratio * 100:.1f}% {bar_visual}"
+        else:
+            pass_ratio = 0.0
+            bar_visual = f"{Colors.DIM}[{'░' * bar_len}]{Colors.RESET}"
+            pass_rate_str = f"{Colors.DIM}N/A (0 active tests){Colors.RESET} {bar_visual}"
+
         avg_time = (self.duration_seconds / self.total_tests) if self.total_tests > 0 else 0.0
 
         if active_tests == 0:
@@ -316,10 +322,10 @@ class AnalyticalTestReporter:
         print(f"\n{Colors.BOLD}{Colors.WHITE}📊 Performance & Quality Analysis:{Colors.RESET}")
         print(f"  • {Colors.GRAY}Execution Time   :{Colors.RESET} {self.duration_seconds:.2f}s")
         print(f"  • {Colors.GRAY}Average Per Test :{Colors.RESET} {avg_time:.2f}s / test")
-        print(f"  • {Colors.GRAY}Pass Rate        :{Colors.RESET} {pass_ratio * 100:.1f}% {bar_visual}")
+        print(f"  • {Colors.GRAY}Pass Rate        :{Colors.RESET} {pass_rate_str}")
         print(f"  • {Colors.GRAY}System Health    :{Colors.RESET} {grade}\n")
 
-        return self.failed_tests == 0
+        return self.failed_tests == 0 and active_tests > 0
 
 
 def render_overall_summary(project_name: str, results: Dict[str, Any]) -> Any:

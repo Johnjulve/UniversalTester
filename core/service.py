@@ -130,8 +130,10 @@ class TesterService:
 
         for cap in capabilities:
             cap_id = cap["id"]
-            if cap_id in ("full_suite", Capability.HEALTH):
+            if cap_id == Capability.HEALTH:
                 cap["available"] = True
+            elif cap_id == "full_suite":
+                cap["available"] = bool(supported)
             else:
                 cap["available"] = cap_id in supported
 
