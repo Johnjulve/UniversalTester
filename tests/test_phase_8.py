@@ -168,17 +168,18 @@ class TestPhase8DesktopGUI(unittest.TestCase):
         self.assertTrue(completed_results[0].run_id.startswith("run-"))
 
     def test_gui_app_initialization(self):
-        import tkinter as tk
-        from gui.main import UniversalTesterApp
+        from gui.main import UniversalTesterApp, HAS_CTK
+        if not HAS_CTK:
+            self.skipTest("customtkinter is not installed")
 
-        root = tk.Tk()
-        root.withdraw()
+        app = UniversalTesterApp()
+        app.withdraw()
         try:
-            app = UniversalTesterApp(root)
-            self.assertEqual(len(app.cap_buttons_frame.winfo_children()), 7)
-            self.assertEqual(app.status_var.get(), "Ready")
+            self.assertEqual(len(app.caps_scroll.winfo_children()), 7)
+            self.assertEqual(app.status_var.get(), "● READY")
         finally:
-            root.destroy()
+            app.destroy()
+
 
 
 if __name__ == '__main__':

@@ -39,12 +39,23 @@ testx = "cli.main:main"
 testx-gui = "gui.main:main"
 
 [project.optional-dependencies]
+gui = [
+    "customtkinter>=6.0.0",
+]
 benchmarks = [
     "requests>=2.28.0",
     "locust>=2.15.0",
     "pytest>=7.0.0",
     "colorama>=0.4.6",
 ]
+all = [
+    "customtkinter>=6.0.0",
+    "requests>=2.28.0",
+    "locust>=2.15.0",
+    "pytest>=7.0.0",
+    "colorama>=0.4.6",
+]
+
 
 [tool.setuptools]
 py-modules = ["tester"]
