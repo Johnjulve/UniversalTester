@@ -114,6 +114,29 @@ class TestPhase8TesterService(unittest.TestCase):
         self.assertIsInstance(result, RunResult)
         self.assertEqual(result.status, "UNAVAILABLE")
 
+    def test_service_run_gui_mode_silences_terminal_and_captures_stream(self):
+        import io
+        import contextlib
+
+        log_events = []
+        def on_event(evt):
+            if evt.level == "log":
+                log_events.append(evt.message)
+
+        terminal_capture = io.StringIO()
+        with contextlib.redirect_stdout(terminal_capture):
+            req = RunRequest(
+                capability="algorithms",
+                options={"gui_mode": True, "capture_stdout": True}
+            )
+            result = self.service.run(req, on_event=on_event)
+
+        # Terminal output must be completely silent in GUI mode
+        self.assertEqual(terminal_capture.getvalue().strip(), "")
+        # But logs are captured into events
+        self.assertGreater(len(log_events), 0)
+        self.assertTrue(result.is_success)
+
 
 class TestPhase8ModularCLI(unittest.TestCase):
     """Test suite for modular CLI parser and dispatchers."""

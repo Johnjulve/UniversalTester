@@ -3,15 +3,64 @@ TesterService Facade: The unified programmatic in-process API for UniversalTeste
 Acts as the single entrypoint for all thin front-ends (CLI, Desktop GUI, scripts).
 """
 import os
+import sys
+import io
+import re
 import uuid
 import time
-from typing import Dict, Any, List, Optional, Set
+import contextlib
+from typing import Dict, Any, List, Optional, Set, Callable
 
 from core.models import RunRequest, RunResult, TestStatus, TestResult
 from core.events import ProgressEvent, EventHandler
 from adapters.registry import detect_adapter, get_adapter
 from adapters.base import BaseAdapter, Capability
 from core.orchestrator import TestOrchestrator
+
+# Ensure fallback stream if packaged as a windowless executable (e.g., PyInstaller --noconsole)
+if sys.stdout is None:
+    sys.stdout = io.StringIO()
+if sys.stderr is None:
+    sys.stderr = io.StringIO()
+
+ANSI_REGEX = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+
+
+class StreamEmitter(io.StringIO):
+    """Captures printed stdout/stderr and streams clean lines to an on_line callback."""
+    def __init__(self, on_line: Callable[[str], None], mirror_stream=None):
+        super().__init__()
+        self.on_line = on_line
+        self.mirror_stream = mirror_stream
+        self._buffer = ""
+
+    def reconfigure(self, **kwargs):
+        pass
+
+    def write(self, s: str):
+        if self.mirror_stream:
+            try:
+                self.mirror_stream.write(s)
+            except Exception:
+                pass
+        self._buffer += s
+        while "\n" in self._buffer:
+            line, self._buffer = self._buffer.split("\n", 1)
+            clean = ANSI_REGEX.sub("", line).rstrip("\r")
+            self.on_line(clean)
+
+    def flush(self):
+        if self.mirror_stream:
+            try:
+                self.mirror_stream.flush()
+            except Exception:
+                pass
+        if self._buffer:
+            clean = ANSI_REGEX.sub("", self._buffer).rstrip("\r\n")
+            if clean:
+                self.on_line(clean)
+            self._buffer = ""
+
 
 
 class TesterService:
@@ -128,27 +177,53 @@ class TesterService:
         cap = request.capability.lower().strip()
         concurrent_users = int(request.options.get("concurrent_users", 500))
 
+        gui_mode = bool(
+            request.options.get("gui_mode") or
+            request.options.get("capture_stdout") or
+            (on_event is not None and request.options.get("gui_mode") is not False)
+        )
+        captured_logs: List[str] = []
+
+        def on_stdout_line(line: str):
+            captured_logs.append(line)
+            emit(cap, -1.0, line, level="log")
+
+        if gui_mode:
+            emitter = StreamEmitter(on_stdout_line, mirror_stream=None)
+            redirect_ctx = contextlib.ExitStack()
+            redirect_ctx.enter_context(contextlib.redirect_stdout(emitter))
+            redirect_ctx.enter_context(contextlib.redirect_stderr(emitter))
+        else:
+            emitter = None
+            redirect_ctx = contextlib.nullcontext()
+
         try:
-            emit(cap, 25.0, f"Executing {cap}...")
-            if cap in (Capability.COMPONENTS, "adaptive", "unit"):
-                result = orchestrator.run_adaptive()
-            elif cap in (Capability.ALGORITHMS, "algo"):
-                result = orchestrator.run_algorithms()
-            elif cap in (Capability.BENCHMARKS, "performance", "perf"):
-                result = orchestrator.run_performance()
-            elif cap in (Capability.SIMULATION, "reliability", "rel"):
-                result = orchestrator.run_reliability(concurrent_users)
-            elif cap in (Capability.SECURITY, "sec"):
-                result = orchestrator.run_security()
-            elif cap in ("full_suite", "all", "overall"):
-                result = orchestrator.run_all_pillars(concurrent_users)
-            elif cap in (Capability.HEALTH, "health"):
-                result = adapter.run_health_check()
-            else:
-                result = TestResult.unavailable(cap, f"Unrecognized capability: '{cap}'")
+            with redirect_ctx:
+                emit(cap, 25.0, f"Executing {cap}...")
+                if cap in (Capability.COMPONENTS, "adaptive", "unit"):
+                    result = orchestrator.run_adaptive()
+                elif cap in (Capability.ALGORITHMS, "algo"):
+                    result = orchestrator.run_algorithms()
+                elif cap in (Capability.BENCHMARKS, "performance", "perf"):
+                    result = orchestrator.run_performance()
+                elif cap in (Capability.SIMULATION, "reliability", "rel"):
+                    result = orchestrator.run_reliability(concurrent_users)
+                elif cap in (Capability.SECURITY, "sec"):
+                    result = orchestrator.run_security()
+                elif cap in ("full_suite", "all", "overall"):
+                    result = orchestrator.run_all_pillars(concurrent_users)
+                elif cap in (Capability.HEALTH, "health"):
+                    result = adapter.run_health_check()
+                else:
+                    result = TestResult.unavailable(cap, f"Unrecognized capability: '{cap}'")
+
+            if emitter:
+                emitter.flush()
 
             duration = time.perf_counter() - start_time
             emit(cap, 100.0, f"Completed {cap} with status {result.status}")
+
+            final_raw = result.raw_output if result.raw_output else ("\n".join(captured_logs) if captured_logs else "")
 
             return RunResult(
                 run_id=run_id,
@@ -161,10 +236,12 @@ class TesterService:
                 },
                 duration_s=round(duration, 4),
                 details=[{"errors": result.errors}] if result.errors else [],
-                raw_output=result.raw_output
+                raw_output=final_raw
             )
 
         except Exception as e:
+            if emitter:
+                emitter.flush()
             duration = time.perf_counter() - start_time
             emit(cap, 100.0, f"Error: {e}", level="error")
             return RunResult(
@@ -176,3 +253,4 @@ class TesterService:
             )
         finally:
             self._canceled_runs.discard(run_id)
+

@@ -4,8 +4,15 @@ Built with CustomTkinter for sleek dark/light mode themes, responsive widgets, a
 """
 import os
 import sys
+import io
 import queue
 from typing import Optional, Dict, Any, List
+
+# Fallback for windowed/noconsole PyInstaller executables where sys.stdout is None
+if sys.stdout is None:
+    sys.stdout = io.StringIO()
+if sys.stderr is None:
+    sys.stderr = io.StringIO()
 
 try:
     import customtkinter as ctk
@@ -173,7 +180,11 @@ if HAS_CTK:
             req = RunRequest(
                 capability=capability,
                 project_path=self.project_path_var.get(),
-                options={"concurrent_users": 200}
+                options={
+                    "concurrent_users": 200,
+                    "gui_mode": True,
+                    "capture_stdout": True
+                }
             )
 
             self.runner.start_run(
@@ -194,8 +205,8 @@ if HAS_CTK:
                         evt: ProgressEvent = payload
                         if evt.percent >= 0:
                             self.progress_bar.set(min(1.0, max(0.0, evt.percent / 100.0)))
-                        self.step_var.set(f"[{evt.step}] {evt.message}")
-                        if evt.message:
+                            self.step_var.set(f"[{evt.step}] {evt.message}")
+                        if evt.message is not None:
                             self.log_text.insert("end", f"{evt.message}\n")
                             self.log_text.see("end")
                     elif mtype == "result":

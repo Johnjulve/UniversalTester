@@ -170,9 +170,13 @@ class PythonAdapter(BaseAdapter):
                 bufsize=1
             )
 
-            for line in iter(process.stdout.readline, ''):
-                sys.stdout.write(line)
-                sys.stdout.flush()
+            try:
+                for line in iter(process.stdout.readline, ''):
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+            finally:
+                if process.stdout:
+                    process.stdout.close()
 
             process.wait()
             elapsed = time.time() - start_time
@@ -206,8 +210,12 @@ class PythonAdapter(BaseAdapter):
                 bufsize=1
             )
 
-            for line in iter(process.stdout.readline, ''):
-                reporter.feed_line(line)
+            try:
+                for line in iter(process.stdout.readline, ''):
+                    reporter.feed_line(line)
+            finally:
+                if process.stdout:
+                    process.stdout.close()
 
             process.wait()
 
@@ -286,12 +294,19 @@ class PythonAdapter(BaseAdapter):
         # 3. Standard unittest discover
         for candidate_dir in [self.backend_dir, self.project_path]:
             tests_dir = os.path.join(candidate_dir, 'tests')
-            if os.path.exists(tests_dir) or any(f.startswith('test_') and f.endswith('.py') for f in os.listdir(candidate_dir)):
+            if os.path.exists(tests_dir):
+                return {
+                    'cmd': [self.python_bin, '-m', 'unittest', 'discover', '-s', 'tests', '-v'],
+                    'cwd': candidate_dir,
+                    'type': 'unittest'
+                }
+            elif any(f.startswith('test_') and f.endswith('.py') for f in os.listdir(candidate_dir)):
                 return {
                     'cmd': [self.python_bin, '-m', 'unittest', 'discover', '-v'],
                     'cwd': candidate_dir,
                     'type': 'unittest'
                 }
+
 
         return None
 
