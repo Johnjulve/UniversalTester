@@ -115,6 +115,32 @@ class TestPhase8TesterService(unittest.TestCase):
         self.assertEqual(result.status, "UNAVAILABLE")
 
 
+class TestPhase8ModularCLI(unittest.TestCase):
+    """Test suite for modular CLI parser and dispatchers."""
+
+    def test_cli_parser_run_subcommand(self):
+        from cli.parser import build_parser
+        parser = build_parser()
+        args = parser.parse_args(["run", "sample_proj", "-p", "algo", "-u", "250", "--json"])
+        self.assertEqual(args.command, "run")
+        self.assertEqual(args.project, "sample_proj")
+        self.assertEqual(args.pillar, "algo")
+        self.assertEqual(args.users, 250)
+        self.assertTrue(args.json)
+
+    def test_cli_parser_gui_flag(self):
+        from cli.parser import build_parser
+        parser = build_parser()
+        args = parser.parse_args(["--gui"])
+        self.assertTrue(args.gui)
+
+    def test_cli_main_doctor_exit_zero(self):
+        from cli.main import main
+        code = main(["doctor"])
+        self.assertEqual(code, 0)
+
+
 if __name__ == '__main__':
     unittest.main()
+
 
