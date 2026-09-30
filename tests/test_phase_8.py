@@ -220,6 +220,24 @@ class TestPhase8DesktopGUI(unittest.TestCase):
         finally:
             app.destroy()
 
+    def test_gui_app_select_capability_flow(self):
+        from gui.main import UniversalTesterApp, HAS_CTK
+        if not HAS_CTK:
+            self.skipTest("customtkinter is not installed")
+
+        app = UniversalTesterApp()
+        app.withdraw()
+        try:
+            app._select_capability("components")
+            self.assertEqual(app.active_capability, "components")
+            self.assertIn("Unit & Component Tests", app.active_test_var.get())
+            self.assertEqual(app.status_var.get(), "● READY")
+            self.assertEqual(app.action_btn.cget("text"), "Start Test")
+            self.assertEqual(app.action_btn.cget("fg_color"), "#10b981")
+            self.assertFalse(app.runner.is_running())
+        finally:
+            app.destroy()
+
 
 
 if __name__ == '__main__':

@@ -49,10 +49,12 @@ if HAS_CTK:
             self.minsize(840, 540)
 
             self.project_path_var = ctk.StringVar(value=os.getcwd())
+            self.active_test_var = ctk.StringVar(value="Active Test: Full Assessment (All 5 Pillars)")
             self.status_var = ctk.StringVar(value="● READY")
-            self.step_var = ctk.StringVar(value="Select a testing capability to begin.")
+            self.step_var = ctk.StringVar(value="Select a testing capability and click 'Start Test'.")
             self.active_capability: Optional[str] = "full_suite"
             self.cap_buttons: Dict[str, ctk.CTkButton] = {}
+            self.cap_names: Dict[str, str] = {}
 
             self._build_ui()
             self._refresh_capabilities()
@@ -107,14 +109,35 @@ if HAS_CTK:
             status_card = ctk.CTkFrame(right_side, fg_color=("gray85", "gray17"), corner_radius=8)
             status_card.pack(fill="x", padx=12, pady=12)
 
-            top_row = ctk.CTkFrame(status_card, fg_color="transparent")
-            top_row.pack(fill="x", padx=10, pady=(8, 4))
+            # Active Test Header (above status)
+            active_row = ctk.CTkFrame(status_card, fg_color="transparent")
+            active_row.pack(fill="x", padx=10, pady=(8, 2))
 
-            self.status_lbl = ctk.CTkLabel(top_row, textvariable=self.status_var, font=ctk.CTkFont(size=13, weight="bold"), text_color="#10b981")
+            self.active_test_lbl = ctk.CTkLabel(
+                active_row,
+                textvariable=self.active_test_var,
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color=("#0284c7", "#38bdf8")
+            )
+            self.active_test_lbl.pack(side="left")
+
+            top_row = ctk.CTkFrame(status_card, fg_color="transparent")
+            top_row.pack(fill="x", padx=10, pady=(2, 4))
+
+            self.status_lbl = ctk.CTkLabel(top_row, textvariable=self.status_var, font=ctk.CTkFont(size=12, weight="bold"), text_color="#10b981")
             self.status_lbl.pack(side="left")
 
-            self.cancel_btn = ctk.CTkButton(top_row, text="Cancel Run", width=90, fg_color="#ef4444", hover_color="#dc2626", state="disabled", command=self._cancel_run)
-            self.cancel_btn.pack(side="right")
+            self.action_btn = ctk.CTkButton(
+                top_row,
+                text="Start Test",
+                width=100,
+                fg_color="#10b981",
+                hover_color="#059669",
+                state="normal",
+                command=self._handle_action_click
+            )
+            self.action_btn.pack(side="right")
+            self.cancel_btn = self.action_btn
 
             self.step_lbl = ctk.CTkLabel(status_card, textvariable=self.step_var, font=ctk.CTkFont(size=12), text_color="gray")
             self.step_lbl.pack(anchor="w", padx=10, pady=(0, 6))
@@ -141,6 +164,7 @@ if HAS_CTK:
             for widget in self.caps_scroll.winfo_children():
                 widget.destroy()
             self.cap_buttons.clear()
+            self.cap_names.clear()
 
             path = self.project_path_var.get()
             caps = self.service.list_capabilities(path)
@@ -154,6 +178,8 @@ if HAS_CTK:
                 if not is_avail:
                     label += " [N/A]"
 
+                self.cap_names[cap_id] = label
+
                 is_active = (cap_id == self.active_capability)
                 btn = ctk.CTkButton(
                     self.caps_scroll,
@@ -164,10 +190,13 @@ if HAS_CTK:
                     fg_color=("#0284c7", "#0369a1") if is_active else ("gray75", "gray25"),
                     hover_color=("#0369a1", "#0284c7") if is_active else ("gray65", "gray35"),
                     state="normal" if is_avail else "disabled",
-                    command=lambda cid=cap_id: self._trigger_run(cid)
+                    command=lambda cid=cap_id: self._select_capability(cid)
                 )
                 btn.pack(fill="x", pady=4)
                 self.cap_buttons[cap_id] = btn
+
+            if self.active_capability and self.active_capability in self.cap_names:
+                self.active_test_var.set(f"Active Test: {self.cap_names[self.active_capability]}")
 
         def _set_active_capability(self, capability: str):
             """Highlight the selected capability button in blue and reset others."""
@@ -184,18 +213,51 @@ if HAS_CTK:
                         hover_color=("gray65", "gray35")
                     )
 
-        def _trigger_run(self, capability: str):
+        def _select_capability(self, capability: str):
+            """Select active capability from sidebar without directly launching execution."""
             if self.runner.is_running():
                 return
 
             self._set_active_capability(capability)
+            label = self.cap_names.get(capability, capability)
+            self.active_test_var.set(f"Active Test: {label}")
+            self.status_var.set("● READY")
+            self.status_lbl.configure(text_color="#10b981")
+            self.step_var.set(f"Ready to run {label}. Click 'Start Test' to begin.")
+            self.action_btn.configure(
+                text="Start Test",
+                fg_color="#10b981",
+                hover_color="#059669",
+                state="normal"
+            )
+            self.progress_bar.set(0.0)
+
+        def _handle_action_click(self):
+            """Start test execution or cancel active run."""
+            if self.runner.is_running():
+                self._cancel_run()
+            else:
+                self._trigger_run(self.active_capability or "full_suite")
+
+        def _trigger_run(self, capability: str):
+            if self.runner.is_running():
+                return
+
+            label = self.cap_names.get(capability, capability)
+            self._set_active_capability(capability)
+            self.active_test_var.set(f"Active Test: {label}")
             self.status_var.set("● RUNNING...")
             self.status_lbl.configure(text_color="#38bdf8")
-            self.step_var.set(f"Executing {capability}...")
+            self.step_var.set(f"Executing {label}...")
             self.progress_bar.set(0.0)
-            self.cancel_btn.configure(state="normal")
+            self.action_btn.configure(
+                text="Cancel Run",
+                fg_color="#ef4444",
+                hover_color="#dc2626",
+                state="normal"
+            )
             self.log_text.delete("1.0", "end")
-            self.log_text.insert("end", f"▶ Starting workload: {capability}\n\n")
+            self.log_text.insert("end", f"▶ Starting workload: {label}\n\n")
 
             req = RunRequest(
                 capability=capability,
@@ -231,10 +293,18 @@ if HAS_CTK:
                             self.log_text.see("end")
                     elif mtype == "result":
                         res: RunResult = payload
-                        self.cancel_btn.configure(state="disabled")
+                        self.action_btn.configure(
+                            text="Start Test",
+                            fg_color="#10b981",
+                            hover_color="#059669",
+                            state="normal"
+                        )
                         if res.is_success:
                             self.status_var.set("✔ PASSED")
                             self.status_lbl.configure(text_color="#10b981")
+                        elif res.status == "canceled":
+                            self.status_var.set("✖ CANCELED")
+                            self.status_lbl.configure(text_color="#f59e0b")
                         else:
                             self.status_var.set(f"✖ {res.status}")
                             self.status_lbl.configure(text_color="#ef4444")
