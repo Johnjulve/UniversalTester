@@ -6,7 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Added
+- **Hexagonal Architecture (Core + Adapters)**:
+  - Built `TesterService` in `core/service.py` providing an in-process programmatic API ("call a function, get structured result") with zero HTTP dependencies.
+  - Added serializable dataclasses `RunRequest` and `RunResult` in `core/models.py` for structured input/output contracts.
+  - Added `ProgressEvent` and `EventHandler` callback protocol in `core/events.py` for real-time progress streaming.
+- **Modular CLI Package (`cli/`)**:
+  - Implemented `cli/parser.py` supporting `testx run [PROJECT] [--pillar P] [--users U] [--json]`, `testx bench`, `testx matrix`, and `testx doctor`.
+  - Implemented `cli/interactive.py` rendering terminal menus dynamically generated from `TesterService.list_capabilities()`.
+  - Implemented `cli/main.py` master dispatcher and refactored root `tester.py` to a thin 16-line launcher.
+- **Cross-Platform Desktop GUI (`gui/`)**:
+  - Created desktop application for Windows and Linux built purely on Standard Library `tkinter`/`ttk`.
+  - Built `AsyncTestRunner` in `gui/worker.py` for non-blocking background test execution with live event queue streaming.
+  - Built visual project selector, dynamic capability sidebar, real-time progress bar, live execution console, and results cards.
+- **Packaging & Entrypoints**:
+  - Registered `testx-gui = "gui.main:main"` in `pyproject.toml` and updated package discovery to include `cli*` and `gui*`.
+- **Phase 8 Verification Suite**:
+  - Added `tests/test_phase_8.py` with 12 unit tests validating data contracts, service facade, CLI parser, and GUI async worker.
+
+
 ## [1.2.0] - 2026-09-28
+
 
 ### Added
 - **Cross-Language Benchmark Matrix**: Multi-runtime algorithm benchmark engine evaluating Python, Node.js (V8), and Dart SDK side-by-side in an ANSI-aligned terminal comparison table.

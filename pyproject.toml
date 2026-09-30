@@ -35,7 +35,8 @@ classifiers = [
 ]
 
 [project.scripts]
-testx = "tester:main"
+testx = "cli.main:main"
+testx-gui = "gui.main:main"
 
 [project.optional-dependencies]
 benchmarks = [
@@ -50,7 +51,7 @@ py-modules = ["tester"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["core*", "adapters*", "Performance*"]
+include = ["core*", "adapters*", "Performance*", "cli*", "gui*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.json"]
