@@ -24,6 +24,7 @@ except ImportError:
 from core.service import TesterService
 from core.models import RunRequest, RunResult
 from core.events import ProgressEvent
+from adapters.base import Capability
 from gui.worker import AsyncTestRunner
 from cli.interactive import load_config
 
@@ -120,6 +121,29 @@ if HAS_CTK:
                 text_color=("#0284c7", "#38bdf8")
             )
             self.active_test_lbl.pack(side="left")
+
+            # Concurrency Load Selector
+            concurrency_box = ctk.CTkFrame(active_row, fg_color="transparent")
+            concurrency_box.pack(side="right")
+
+            ctk.CTkLabel(
+                concurrency_box,
+                text="Load Users:",
+                font=ctk.CTkFont(size=11, weight="bold"),
+                text_color="gray"
+            ).pack(side="left", padx=(0, 4))
+
+            self.concurrency_var = ctk.StringVar(value="200")
+            self.concurrency_menu = ctk.CTkOptionMenu(
+                concurrency_box,
+                variable=self.concurrency_var,
+                values=["50", "100", "200", "500", "1000", "2000"],
+                width=85,
+                height=26,
+                font=ctk.CTkFont(size=11),
+                command=self._on_concurrency_change
+            )
+            self.concurrency_menu.pack(side="left")
 
             top_row = ctk.CTkFrame(status_card, fg_color="transparent")
             top_row.pack(fill="x", padx=10, pady=(2, 4))
@@ -235,6 +259,13 @@ if HAS_CTK:
                         hover_color=("gray65", "gray35")
                     )
 
+        def _on_concurrency_change(self, value: str):
+            """Update active test label and prompt when user changes concurrency."""
+            if self.active_capability in ("simulation", Capability.SIMULATION):
+                label = f"Pillar 4: Concurrency Simulation ({value} Users)"
+                self.active_test_var.set(f"Active Test: {label}")
+                self.step_var.set(f"Ready to run {label}. Click 'Start Test' to begin.")
+
         def _select_capability(self, capability: str):
             """Select active capability from sidebar without directly launching execution."""
             if self.runner.is_running():
@@ -242,6 +273,8 @@ if HAS_CTK:
 
             self._set_active_capability(capability)
             label = self.cap_names.get(capability, capability)
+            if capability in ("simulation", Capability.SIMULATION):
+                label = f"Pillar 4: Concurrency Simulation ({self.concurrency_var.get()} Users)"
             self.active_test_var.set(f"Active Test: {label}")
             self.status_var.set("● READY")
             self.status_lbl.configure(text_color="#10b981")
@@ -265,7 +298,11 @@ if HAS_CTK:
             if self.runner.is_running():
                 return
 
+            users_val = int(self.concurrency_var.get()) if self.concurrency_var.get().isdigit() else 200
             label = self.cap_names.get(capability, capability)
+            if capability in ("simulation", Capability.SIMULATION):
+                label = f"Pillar 4: Concurrency Simulation ({users_val} Users)"
+
             self._set_active_capability(capability)
             self.active_test_var.set(f"Active Test: {label}")
             self.status_var.set("● RUNNING...")
@@ -285,7 +322,7 @@ if HAS_CTK:
                 capability=capability,
                 project_path=self.project_path_var.get(),
                 options={
-                    "concurrent_users": 200,
+                    "concurrent_users": users_val,
                     "gui_mode": True,
                     "capture_stdout": True
                 }

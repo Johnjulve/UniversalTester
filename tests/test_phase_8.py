@@ -304,6 +304,58 @@ class TestPhase8DesktopGUI(unittest.TestCase):
             self.assertFalse(cap_dict["full_suite"])
             self.assertTrue(cap_dict["health"])
 
+    def test_reliability_simulation_high_concurrency_degradation_and_diagnostics(self):
+        from Performance.reliability_tester import evaluate_reliability_sla, SCENARIOS, SERVER_PROFILES
+
+        # 1. At 2000 users across all servers, capacity is exceeded and pass rate must lower (<100%)
+        scenarios = [SCENARIOS["balanced_api"]]
+        servers = list(SERVER_PROFILES.keys())
+        concurrent_list = [10, 25, 50, 100, 200, 500, 1000, 2000]
+
+        summary = evaluate_reliability_sla(scenarios, servers, concurrent_list, burst_seconds=120)
+        self.assertGreater(summary["failed"], 0)
+        self.assertLess(summary["pass_rate"], 100.0)
+        self.assertGreater(len(summary["causes"]), 0)
+        self.assertGreater(len(summary["remediations"]), 0)
+
+        # 2. Check that root causes explain overload and mention specific remedy areas
+        cause_text = " ".join(summary["causes"]).lower()
+        self.assertIn("capacity exceeded", cause_text)
+        rem_text = " ".join(summary["remediations"]).lower()
+        self.assertIn("worker", rem_text)
+        self.assertIn("database", rem_text)
+
+        # 3. At low concurrency (50 users), pass rate must remain 100%
+        summary_low = evaluate_reliability_sla(scenarios, servers, [10, 25, 50], burst_seconds=120)
+        self.assertEqual(summary_low["failed"], 0)
+        self.assertEqual(summary_low["pass_rate"], 100.0)
+        self.assertEqual(len(summary_low["causes"]), 0)
+
+    def test_gui_concurrency_selector(self):
+        try:
+            import customtkinter as ctk
+            from gui.main import UniversalTesterGUI
+        except ImportError:
+            self.skipTest("customtkinter not available for GUI test")
+
+        app = UniversalTesterGUI()
+        try:
+            self.assertTrue(hasattr(app, "concurrency_var"))
+            self.assertTrue(hasattr(app, "concurrency_menu"))
+            self.assertEqual(app.concurrency_var.get(), "200")
+
+            # Verify options include 2000
+            options = app.concurrency_menu.cget("values")
+            self.assertIn("2000", options)
+            self.assertIn("50", options)
+
+            # Change concurrency to 2000 and select simulation
+            app.concurrency_var.set("2000")
+            app._select_capability("simulation")
+            self.assertIn("2000 Users", app.active_test_var.get())
+        finally:
+            app.destroy()
+
 
 if __name__ == '__main__':
     unittest.main()

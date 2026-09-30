@@ -5,6 +5,8 @@ Executes Python test runners (manage.py test, pytest, unittest), load simulation
 import os
 import sys
 import time
+import json
+import tempfile
 import subprocess
 from typing import Dict, Any, Set, Optional, List
 
@@ -157,7 +159,7 @@ class PythonAdapter(BaseAdapter):
 
         return found_interpreters[0]
 
-    def _run_process(self, cmd: List[str], cwd: str, label: str) -> TestResult:
+    def _run_process(self, cmd: List[str], cwd: str, label: str, print_verdict: bool = True) -> TestResult:
         """Run a subprocess and stream output with status reporting."""
         print(f"\n{Colors.DIM}Executing: {' '.join(cmd)}{Colors.RESET}\n")
         start_time = time.time()
@@ -185,12 +187,12 @@ class PythonAdapter(BaseAdapter):
             process.wait()
             elapsed = time.time() - start_time
 
-            if process.returncode == 0:
-                print(f"\n{Colors.BRIGHT_GREEN}✔ {label} PASSED ({elapsed:.2f}s){Colors.RESET}")
-                return TestResult.from_bool(label, True, duration=elapsed)
-            else:
-                print(f"\n{Colors.BRIGHT_RED}✘ {label} FAILED with exit code {process.returncode} ({elapsed:.2f}s){Colors.RESET}")
-                return TestResult.from_bool(label, False, duration=elapsed)
+            if print_verdict:
+                if process.returncode == 0:
+                    print(f"\n{Colors.BRIGHT_GREEN}✔ {label} PASSED ({elapsed:.2f}s){Colors.RESET}")
+                else:
+                    print(f"\n{Colors.BRIGHT_RED}✘ {label} FAILED with exit code {process.returncode} ({elapsed:.2f}s){Colors.RESET}")
+            return TestResult.from_bool(label, process.returncode == 0, duration=elapsed)
 
         except Exception as e:
             print(f"\n{Colors.BRIGHT_RED}✘ Process execution error: {e}{Colors.RESET}")
@@ -329,6 +331,25 @@ class PythonAdapter(BaseAdapter):
         cmd = [c for c in runner_info['cmd'] if c]
         return self._run_analytical_test(cmd, cwd=runner_info['cwd'], label=suite_name)
 
+    def _detect_project_hotspots(self) -> List[str]:
+        """Detect candidate configuration and routing files in the target project to inspect."""
+        hotspots = []
+        candidates = [
+            ("settings.py", "Database connection pooling (CONN_MAX_AGE) and cache settings"),
+            ("main.py", "ASGI/WSGI worker processes and concurrency configuration"),
+            ("asgi.py", "ASGI event loop and worker scaling configuration"),
+            ("wsgi.py", "WSGI synchronous worker timeout and pool limits"),
+            ("views.py", "High-frequency endpoint queries and pagination handlers"),
+        ]
+        for root, _, files in os.walk(self.project_path):
+            for filename, desc in candidates:
+                if filename in files:
+                    rel = os.path.relpath(os.path.join(root, filename), self.project_path)
+                    hotspots.append(f"Candidate file to inspect: {rel} ({desc})")
+                    if len(hotspots) >= 3:
+                        return hotspots
+        return hotspots
+
     def run_simulation_test(self, concurrent_users: int) -> TestResult:
         """Run analytical concurrent load simulation across configurable traffic profiles."""
         suite_name = f"Concurrency Simulation ({concurrent_users} Users)"
@@ -340,16 +361,59 @@ class PythonAdapter(BaseAdapter):
             print_status("UNAVAIL", reason, color=Colors.DIM)
             return TestResult.unavailable(suite_name, reason)
 
-        # Configurable scenario with default to comprehensive 'all'
         scenario = self.config.get('simulation_scenario', 'all')
+        temp_fd, temp_json = tempfile.mkstemp(suffix=".json", prefix="sim_summary_")
+        os.close(temp_fd)
+
         cmd = [
-            self.python_bin,
-            sim_script,
+            self.python_bin, sim_script,
             '--scenario', scenario,
             '--concurrent', str(concurrent_users),
-            '--burst-seconds', '120'
+            '--burst-seconds', '120',
+            '--json-output', temp_json
         ]
-        return self._run_process(cmd, cwd=self.project_path, label=suite_name)
+        base_res = self._run_process(cmd, cwd=self.project_path, label=suite_name, print_verdict=False)
+
+        summary = None
+        if os.path.exists(temp_json):
+            try:
+                with open(temp_json, 'r', encoding='utf-8') as f:
+                    summary = json.load(f)
+            except Exception:
+                pass
+            finally:
+                try:
+                    os.remove(temp_json)
+                except Exception:
+                    pass
+
+        if not summary:
+            return base_res
+
+        passed, failed = summary.get("passed", 1), summary.get("failed", 0)
+        causes = summary.get("causes", [])
+        remediations = summary.get("remediations", [])
+        hotspots = self._detect_project_hotspots() if failed > 0 else []
+
+        is_success = (failed == 0) and (base_res.is_success)
+        status = TestStatus.PASSED if is_success else TestStatus.FAILED
+
+        if is_success:
+            print(f"\n{Colors.BRIGHT_GREEN}✔ {suite_name} PASSED (100% capacity SLA, {base_res.duration:.2f}s){Colors.RESET}")
+        else:
+            rate = summary.get("pass_rate", 0)
+            print(f"\n{Colors.YELLOW}⚠ {suite_name} CAPACITY EXCEEDED ({rate:.1f}% SLA, {failed} tiers overloaded, {base_res.duration:.2f}s){Colors.RESET}")
+
+        return TestResult(
+            suite_name=suite_name,
+            status=status,
+            passed=passed,
+            failed=failed,
+            skipped=0,
+            duration=base_res.duration,
+            errors=causes + remediations + hotspots,
+            raw_output=base_res.raw_output
+        )
 
     def run_algorithms_test(self) -> TestResult:
         """Run algorithm verification and execution speed tests."""

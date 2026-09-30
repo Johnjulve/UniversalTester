@@ -423,6 +423,12 @@ def render_overall_summary(project_name: str, results: Dict[str, Any]) -> Any:
 
     print(f"\n{Colors.BOLD}{Colors.WHITE}📊 Overall Health Grade:{Colors.RESET} {grade}\n")
 
+    if errors:
+        print(f"{Colors.BOLD}{Colors.YELLOW}🔍 Diagnostic Highlights & Areas to Inspect:{Colors.RESET}")
+        for err in errors[:8]:
+            print(f"  • {err}")
+        print()
+
     return TestResult(
         suite_name=f"{project_name} Overall Suite",
         status=TestStatus.PASSED if all_passed else TestStatus.FAILED,
