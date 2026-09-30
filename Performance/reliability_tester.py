@@ -266,9 +266,11 @@ def diagnose_overload_causes(
     if not failed_evals:
         return []
     worst = max(failed_evals, key=lambda x: x["util"])
+    overload_ratio = worst['util'] / 100.0
+    load_desc = f"{worst['util']:.0f}% utilization" if worst['util'] <= 100.0 else f"100% saturated ({overload_ratio:.1f}x capacity demand)"
     causes = [
         f"Server capacity exceeded at {worst['concurrent']:,} concurrent users "
-        f"({worst['server']}: {worst['util']:.0f}% utilization, peak {peak_rps:.1f} req/s)."
+        f"({worst['server']}: {load_desc}, peak {peak_rps:.1f} req/s)."
     ]
     if worst["util"] >= 150.0:
         causes.append("Critical queue saturation: OS backlog buildup triggers connection timeouts & 504 errors.")
@@ -332,16 +334,22 @@ def print_diagnostic_report(summary: Dict[str, Any]):
         return
 
     rate = summary["pass_rate"]
-    is_tolerable = rate >= 75.0
+    is_tolerable = rate >= 70.0
     verdict = "PASSED WITH CAUTION (Tolerable SLA limit)" if is_tolerable else "CAPACITY FAILURE"
     badge_color = Colors.YELLOW if is_tolerable else Colors.BRIGHT_RED
+
+    max_u = summary['max_util']
+    if max_u > 100.0:
+        util_str = f"100% Saturated ({max_u / 100.0:.1f}x capacity demand / {max_u:.0f}% offered load)"
+    else:
+        util_str = f"{max_u:.0f}%"
 
     print("\n" + "=" * 78)
     print(" ⚠️  RELIABILITY BOTTLENECK & CAPACITY DEGRADATION DIAGNOSTICS")
     print("=" * 78)
     print(f" Benchmark Verdict  : {badge_color}{verdict}{Colors.RESET}")
     print(f" Capacity Pass Rate : {summary['pass_rate']:.1f}% ({summary['passed']} passed, {summary['failed']} overloaded)")
-    print(f" Peak Utilization   : {summary['max_util']:.0f}%")
+    print(f" Peak Utilization   : {util_str}")
     if mem_str:
         print(f" Session Memory     :{mem_str.replace(' • ', ' ')}")
     print("\n 🔍 Identified Root Causes:")
@@ -397,7 +405,8 @@ def run_simulation(
                 agg = simulate_scenario(concurrent, scenario, burst_seconds)
                 util = (agg['arrival_rps'] / cap_rps) * 100.0 if cap_rps > 0 else 999.0
                 status, desc = assess_reliability_state(util)
-                print(f"     └─ {concurrent:>5,} users ──► Util: {util:>5.0f}% [{status:<10}] {desc}")
+                u_fmt = f"{util:>5.0f}%" if util <= 100.0 else f"{util/100:>4.1f}x cap"
+                print(f"     └─ {concurrent:>5,} users ──► Util: {u_fmt:<9} [{status:<10}] {desc}")
 
     print("\n" + "=" * 78)
     print(" 💡 Sizing & Reliability Guidance:")

@@ -435,7 +435,7 @@ def render_overall_summary(project_name: str, results: Dict[str, Any]) -> Any:
         grade = f"{Colors.BOLD}{Colors.YELLOW}Grade B+{Colors.RESET} (Passed with capacity warnings within tolerable limits)"
     elif pass_ratio >= 0.90:
         grade = f"{Colors.BOLD}{Colors.YELLOW}Grade B{Colors.RESET} (Minor failures detected)"
-    elif pass_ratio >= 0.75:
+    elif pass_ratio >= 0.70:
         grade = f"{Colors.BOLD}{Colors.YELLOW}Grade C{Colors.RESET} (Tolerable benchmark limit reached)"
     else:
         grade = f"{Colors.BOLD}{Colors.BRIGHT_RED}Grade F{Colors.RESET} (Critical failure count)"

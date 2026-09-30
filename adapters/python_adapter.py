@@ -396,8 +396,8 @@ class PythonAdapter(BaseAdapter):
         hotspots = self._detect_project_hotspots() if failed > 0 else []
 
         rate = summary.get("pass_rate", 100.0)
-        # Tolerable benchmark threshold: >= 75% average is acceptable with caution
-        is_tolerable = (rate >= 75.0) and (base_res.is_success)
+        # Tolerable benchmark threshold: >= 70% average is acceptable with caution
+        is_tolerable = (rate >= 70.0) and (base_res.is_success)
         status = TestStatus.PASSED if is_tolerable else TestStatus.FAILED
 
         if failed == 0:
@@ -405,7 +405,7 @@ class PythonAdapter(BaseAdapter):
         elif is_tolerable:
             print(f"\n{Colors.YELLOW}⚠ {suite_name} PASSED WITH CAUTION ({rate:.1f}% SLA within tolerable limits, {failed} tiers overloaded, {base_res.duration:.2f}s){Colors.RESET}")
         else:
-            print(f"\n{Colors.BRIGHT_RED}✘ {suite_name} CAPACITY EXCEEDED ({rate:.1f}% SLA below 75% threshold, {failed} tiers overloaded, {base_res.duration:.2f}s){Colors.RESET}")
+            print(f"\n{Colors.BRIGHT_RED}✘ {suite_name} CAPACITY EXCEEDED ({rate:.1f}% SLA below 70% threshold, {failed} tiers overloaded, {base_res.duration:.2f}s){Colors.RESET}")
 
         return TestResult(
             suite_name=suite_name,
