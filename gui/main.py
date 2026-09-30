@@ -51,6 +51,8 @@ if HAS_CTK:
             self.project_path_var = ctk.StringVar(value=os.getcwd())
             self.status_var = ctk.StringVar(value="● READY")
             self.step_var = ctk.StringVar(value="Select a testing capability to begin.")
+            self.active_capability: Optional[str] = "full_suite"
+            self.cap_buttons: Dict[str, ctk.CTkButton] = {}
 
             self._build_ui()
             self._refresh_capabilities()
@@ -138,6 +140,7 @@ if HAS_CTK:
         def _refresh_capabilities(self):
             for widget in self.caps_scroll.winfo_children():
                 widget.destroy()
+            self.cap_buttons.clear()
 
             path = self.project_path_var.get()
             caps = self.service.list_capabilities(path)
@@ -151,24 +154,41 @@ if HAS_CTK:
                 if not is_avail:
                     label += " [N/A]"
 
-                is_primary = cap_id == "full_suite"
+                is_active = (cap_id == self.active_capability)
                 btn = ctk.CTkButton(
                     self.caps_scroll,
                     text=label,
                     anchor="w",
                     height=36,
                     corner_radius=6,
-                    fg_color=("#0284c7", "#0369a1") if is_primary else ("gray75", "gray25"),
-                    hover_color=("#0369a1", "#0284c7") if is_primary else ("gray65", "gray35"),
+                    fg_color=("#0284c7", "#0369a1") if is_active else ("gray75", "gray25"),
+                    hover_color=("#0369a1", "#0284c7") if is_active else ("gray65", "gray35"),
                     state="normal" if is_avail else "disabled",
                     command=lambda cid=cap_id: self._trigger_run(cid)
                 )
                 btn.pack(fill="x", pady=4)
+                self.cap_buttons[cap_id] = btn
+
+        def _set_active_capability(self, capability: str):
+            """Highlight the selected capability button in blue and reset others."""
+            self.active_capability = capability
+            for cid, btn in self.cap_buttons.items():
+                if cid == capability:
+                    btn.configure(
+                        fg_color=("#0284c7", "#0369a1"),
+                        hover_color=("#0369a1", "#0284c7")
+                    )
+                else:
+                    btn.configure(
+                        fg_color=("gray75", "gray25"),
+                        hover_color=("gray65", "gray35")
+                    )
 
         def _trigger_run(self, capability: str):
             if self.runner.is_running():
                 return
 
+            self._set_active_capability(capability)
             self.status_var.set("● RUNNING...")
             self.status_lbl.configure(text_color="#38bdf8")
             self.step_var.set(f"Executing {capability}...")

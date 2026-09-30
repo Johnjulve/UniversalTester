@@ -203,6 +203,23 @@ class TestPhase8DesktopGUI(unittest.TestCase):
         finally:
             app.destroy()
 
+    def test_gui_app_active_capability_highlight(self):
+        from gui.main import UniversalTesterApp, HAS_CTK
+        if not HAS_CTK:
+            self.skipTest("customtkinter is not installed")
+
+        app = UniversalTesterApp()
+        app.withdraw()
+        try:
+            self.assertIn("components", app.cap_buttons)
+            self.assertIn("full_suite", app.cap_buttons)
+            app._set_active_capability("components")
+            self.assertEqual(app.active_capability, "components")
+            self.assertEqual(app.cap_buttons["components"].cget("fg_color"), ("#0284c7", "#0369a1"))
+            self.assertEqual(app.cap_buttons["full_suite"].cget("fg_color"), ("gray75", "gray25"))
+        finally:
+            app.destroy()
+
 
 
 if __name__ == '__main__':
