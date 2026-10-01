@@ -12,6 +12,8 @@ develop-eggs/
 dist/
 *.spec
 build_exe.py
+build_deb.py
+*.deb
 downloads/
 eggs/
 .eggs/

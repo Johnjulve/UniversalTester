@@ -14,12 +14,19 @@ if sys.stdout is None:
 if sys.stderr is None:
     sys.stderr = io.StringIO()
 
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_VENDOR_DIR = os.path.join(_ROOT_DIR, "vendor")
+if os.path.exists(_VENDOR_DIR) and _VENDOR_DIR not in sys.path:
+    sys.path.insert(0, _VENDOR_DIR)
+
+_IMPORT_ERROR: Optional[str] = None
 try:
     import customtkinter as ctk
     from tkinter import filedialog
     HAS_CTK = True
-except ImportError:
+except Exception as e:
     HAS_CTK = False
+    _IMPORT_ERROR = str(e)
 
 from core.service import TesterService
 from core.models import RunRequest, RunResult
@@ -28,8 +35,6 @@ from core.ui import get_session_memory_mb
 from adapters.base import Capability
 from gui.worker import AsyncTestRunner
 from cli.interactive import load_config
-
-_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 if HAS_CTK:
@@ -415,7 +420,24 @@ if HAS_CTK:
 def main() -> int:
     """Launch UniversalTester Desktop GUI."""
     if not HAS_CTK:
-        print("CustomTkinter is not installed. Run: pip install customtkinter")
+        err_detail = _IMPORT_ERROR or "CustomTkinter could not be loaded."
+        msg = (
+            f"UniversalTester Desktop GUI requires Python Tkinter and PIL:\n\n"
+            f"Error details: {err_detail}\n\n"
+            f"To resolve on Ubuntu/Debian, install the required packages:\n"
+            f"  sudo apt install python3-tk python3-pil python3-pil.imagetk"
+        )
+        print(msg, file=sys.stderr)
+        if sys.platform != "win32":
+            try:
+                import subprocess
+                import shutil
+                if shutil.which("zenity"):
+                    subprocess.run(["zenity", "--error", "--title=Universal Tester", "--text=" + msg])
+                elif shutil.which("kdialog"):
+                    subprocess.run(["kdialog", "--error", msg])
+            except Exception:
+                pass
         return 1
 
     app = UniversalTesterApp()
