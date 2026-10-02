@@ -162,6 +162,12 @@ class TestPhase8ModularCLI(unittest.TestCase):
         code = main(["doctor"])
         self.assertEqual(code, 0)
 
+    def test_cli_version_matches_release(self):
+        from cli.parser import build_parser
+        parser = build_parser()
+        version_action = next(a for a in parser._actions if "--version" in a.option_strings)
+        self.assertEqual(version_action.version, "UniversalTester 2.0.1")
+
 
 class TestPhase8DesktopGUI(unittest.TestCase):
     """Test suite for desktop GUI components and async runner."""
@@ -433,6 +439,28 @@ class TestPhase8DesktopGUI(unittest.TestCase):
             self.assertEqual(app.proj_entry.cget("state"), "disabled")
             app._set_controls_enabled(True)
             self.assertEqual(app.proj_entry.cget("state"), "normal")
+        finally:
+            app.destroy()
+
+    def test_gui_assets_and_logo_graceful_loading(self):
+        import os
+        from gui.main import _find_asset, UniversalTesterGUI, HAS_CTK
+        if not HAS_CTK:
+            self.skipTest("customtkinter not available for GUI test")
+
+        # 1. Non-existent asset returns None
+        self.assertIsNone(_find_asset("non_existent_asset_xyz.png"))
+
+        # 2. Existing asset discovery
+        readme_path = _find_asset("assets/README.md")
+        self.assertIsNotNone(readme_path)
+        self.assertTrue(os.path.exists(readme_path))
+
+        # 3. GUI initializes and handles missing/present icon without raising
+        app = UniversalTesterGUI()
+        try:
+            self.assertIsNotNone(app)
+            self.assertTrue(hasattr(app, "_setup_window_icon"))
         finally:
             app.destroy()
 
