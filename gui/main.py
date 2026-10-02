@@ -38,6 +38,16 @@ from gui.worker import AsyncTestRunner
 from cli.interactive import load_config
 
 
+def _find_asset(*relative_candidates: str) -> Optional[str]:
+    """Find an asset path across candidates relative to repository root or frozen bundle."""
+    base_dir = getattr(sys, "_MEIPASS", _ROOT_DIR)
+    for rel in relative_candidates:
+        p = os.path.join(base_dir, rel)
+        if os.path.exists(p):
+            return p
+    return None
+
+
 if HAS_CTK:
     ctk.set_appearance_mode("Dark")
     ctk.set_default_color_theme("blue")
@@ -46,24 +56,30 @@ if HAS_CTK:
         """Modern CustomTkinter desktop interface for UniversalTester."""
 
         def __init__(self, service: Optional[TesterService] = None):
-            super().__init__()
-            if sys.platform == "win32" and getattr(sys, "frozen", False):
+            if sys.platform == "win32":
                 try:
                     import ctypes
-                    hwnd = ctypes.windll.kernel32.GetConsoleWindow()
-                    if hwnd:
-                        ctypes.windll.user32.ShowWindow(hwnd, 0)
+                    # Explicit AppUserModelID tells Windows taskbar to treat this as its own distinct application
+                    # rather than generic python.exe, ensuring the taskbar shows our custom logo icon.
+                    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("jajulvelabs.universaltester.gui.2.0.1")
+                    if getattr(sys, "frozen", False):
+                        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+                        if hwnd:
+                            ctypes.windll.user32.ShowWindow(hwnd, 0)
                 except Exception:
                     pass
+
+            super().__init__()
 
             self.service = service or TesterService()
             self.runner = AsyncTestRunner(self.service)
             self.event_queue: queue.Queue = queue.Queue()
             self.config = load_config(_ROOT_DIR)
 
-            self.title("⚡ UniversalTester v2.0.1 (testx) — Quality & Benchmark Engine")
+            self.title("UniversalTester v2.0.1 (testx) — Quality & Benchmark Engine")
             self.geometry("1060x700")
             self.minsize(920, 600)
+            self._setup_window_icon()
 
             self.project_path_var = ctk.StringVar(value=os.getcwd())
             self.active_test_var = ctk.StringVar(value="Active Test: Full Assessment (All 5 Pillars)")
@@ -83,6 +99,37 @@ if HAS_CTK:
             self._refresh_capabilities()
             self._poll_queue()
 
+        def _setup_window_icon(self):
+            """Load window icon from assets/ if available."""
+            ico_path = _find_asset(
+                os.path.join("assets", "icons", "icon.ico"),
+                os.path.join("assets", "icons", "icons.ico"),
+                os.path.join("assets", "icon.ico"),
+                os.path.join("assets", "icons.ico"),
+            )
+            png_path = _find_asset(
+                os.path.join("assets", "icons", "icon.png"),
+                os.path.join("assets", "icons", "icons.png"),
+                os.path.join("assets", "icon.png"),
+                os.path.join("assets", "icons.png"),
+                os.path.join("assets", "logo", "logo.png"),
+            )
+            if sys.platform == "win32" and ico_path:
+                try:
+                    self.iconbitmap(default=ico_path)
+                    self.iconbitmap(ico_path)
+                except Exception:
+                    pass
+
+            if png_path:
+                try:
+                    from PIL import Image, ImageTk
+                    img = Image.open(png_path)
+                    self._icon_photo = ImageTk.PhotoImage(img)
+                    self.iconphoto(True, self._icon_photo)
+                except Exception:
+                    pass
+
         def _build_ui(self):
             # 1. Top Header Bar
             header = ctk.CTkFrame(self, corner_radius=10, fg_color=("#ffffff", "gray14"), border_width=1, border_color=("#e2e8f0", "#334155"))
@@ -91,8 +138,29 @@ if HAS_CTK:
             title_box = ctk.CTkFrame(header, fg_color="transparent")
             title_box.pack(side="left", padx=12, pady=8)
 
-            ctk.CTkLabel(title_box, text="⚡ UniversalTester  v2.0.1", font=ctk.CTkFont(size=18, weight="bold"), text_color=("#1f538d", "#38bdf8")).pack(anchor="w")
-            ctk.CTkLabel(title_box, text="5-Pillar Quality Engine & Algorithm Matrix", font=ctk.CTkFont(size=11), text_color=("#334155", "#94a3b8")).pack(anchor="w")
+            logo_path = _find_asset(
+                os.path.join("assets", "logo", "logo.png"),
+                os.path.join("assets", "icons", "icon.png"),
+                os.path.join("assets", "logo.png"),
+                os.path.join("assets", "icon.png"),
+            )
+            title_prefix = "⚡ "
+            if logo_path:
+                try:
+                    from PIL import Image
+                    pil_img = Image.open(logo_path)
+                    logo_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(32, 32))
+                    logo_lbl = ctk.CTkLabel(title_box, image=logo_img, text="")
+                    logo_lbl.pack(side="left", padx=(0, 10))
+                    title_prefix = ""
+                except Exception:
+                    pass
+
+            text_box = ctk.CTkFrame(title_box, fg_color="transparent")
+            text_box.pack(side="left")
+
+            ctk.CTkLabel(text_box, text=f"{title_prefix}UniversalTester  v2.0.1", font=ctk.CTkFont(size=18, weight="bold"), text_color=("#1f538d", "#38bdf8")).pack(anchor="w")
+            ctk.CTkLabel(text_box, text="5-Pillar Quality Engine & Algorithm Matrix", font=ctk.CTkFont(size=11), text_color=("#334155", "#94a3b8")).pack(anchor="w")
 
             theme_box = ctk.CTkFrame(header, fg_color="transparent")
             theme_box.pack(side="right", padx=12, pady=8)
