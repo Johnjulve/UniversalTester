@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.1] - 2026-10-02
+
+### Added
+- **Logo & Application Icon Branding System**:
+  - Added dedicated `assets/` structure with `assets/icons/` and `assets/logo/`.
+  - Generated multi-resolution `icon.ico` (16×16 to 256×256) and high-DPI `icon.png` (256×256).
+  - Configured Windows `SetCurrentProcessExplicitAppUserModelID` so the Windows taskbar displays the custom logo rather than generic `python.exe`.
+  - Added dynamic in-app logo rendering in the GUI header bar beside the title.
+  - Updated PyInstaller build (`build_exe.py` and `UniversalTester.spec`) to embed `--icon=assets/icons/icon.ico` directly into the `.exe` binary.
+  - Updated Debian package builder (`build_deb.py`) to install high-DPI icons into `/usr/share/icons/` and `/usr/share/pixmaps/` and configure `Icon=universaltester`.
+- **Live Execution Metric Stat Cards**:
+  - Added a 4-card metric dashboard above the console displaying `⏱ DURATION`, `🧠 PEAK RAM`, `🎯 TESTS / RESULT`, and `🏆 SYSTEM GRADE`.
+- **Console Action Toolbar**:
+  - Added action buttons for `Auto-scroll` toggle, `Clear`, `Copy` to system clipboard, and `Export...` to file.
+- **Execution Control Locking**:
+  - Implemented automatic locking of capability buttons, project selector, and concurrency inputs during active test execution to prevent re-triggering.
+
+### Changed
+- **Light Mode High-Contrast Overhaul**:
+  - Fixed low-contrast text blending on unavailable (`[N/A]`) tests by applying `#0f172a` deep slate with `#94a3b8` borders (13.1:1 contrast ratio, WCAG AAA).
+  - Replaced dull cement-gray (`gray85`) cards with clean off-white (`#f8fafc`) cards and subtle slate borders.
+  - Added explicit `text_color_disabled` across all buttons to prevent fallback to `gray74` ghosting when controls lock during runs.
+- **Version Bump**:
+  - Updated package version to `2.0.1` across `pyproject.toml`, `cli/parser.py`, `build_deb.py`, and `build_exe.py`.
+
+
 ## [2.0.0] - 2026-10-01
 
 ### Added
