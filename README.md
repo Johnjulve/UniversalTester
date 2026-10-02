@@ -1,8 +1,12 @@
-# ⚡ UniversalTester (`testx`): Universal 5-Pillar Test & Simulation Engine
+<p align="center">
+  <img src="assets/logo/logo.png" width="120" height="120" alt="UniversalTester Logo">
+</p>
 
-> **Version 2.0.0** • 100% Python Standard Library Core • Desktop GUI & CLI
-
-**UniversalTester** is an independent, framework-agnostic testing, simulation, and security analysis engine. It provides a standardized **5-pillar testing methodology** to assess any software project across adaptivity, algorithmic correctness, performance latency, concurrency reliability, and security vulnerabilities.
+<h1 align="center">UniversalTester (<code>testx</code>)</h1>
+<p align="center"><b>Universal 5-Pillar Test, Concurrency Simulation & Benchmark Engine</b></p>
+<p align="center">
+  <b>Version 2.0.1</b> • 100% Python Standard Library Core • Cross-Platform Desktop GUI & CLI
+</p>
 
 ---
 

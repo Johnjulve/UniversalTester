@@ -162,6 +162,12 @@ class TestPhase8ModularCLI(unittest.TestCase):
         code = main(["doctor"])
         self.assertEqual(code, 0)
 
+    def test_cli_version_matches_release(self):
+        from cli.parser import build_parser
+        parser = build_parser()
+        version_action = next(a for a in parser._actions if "--version" in a.option_strings)
+        self.assertEqual(version_action.version, "UniversalTester 2.0.1")
+
 
 class TestPhase8DesktopGUI(unittest.TestCase):
     """Test suite for desktop GUI components and async runner."""
@@ -216,7 +222,7 @@ class TestPhase8DesktopGUI(unittest.TestCase):
             app._set_active_capability("components")
             self.assertEqual(app.active_capability, "components")
             self.assertEqual(app.cap_buttons["components"].cget("fg_color"), ("#0284c7", "#0369a1"))
-            self.assertEqual(app.cap_buttons["full_suite"].cget("fg_color"), ("gray75", "gray25"))
+            self.assertEqual(app.cap_buttons["full_suite"].cget("fg_color"), ("#f1f5f9", "#1e293b"))
         finally:
             app.destroy()
 
@@ -390,6 +396,71 @@ class TestPhase8DesktopGUI(unittest.TestCase):
             app.concurrency_var.set("3500")
             app._select_capability("simulation")
             self.assertIn("3500 Users", app.active_test_var.get())
+        finally:
+            app.destroy()
+
+    def test_gui_stat_cards_and_toolbar(self):
+        try:
+            import customtkinter as ctk
+            from gui.main import UniversalTesterGUI
+        except ImportError:
+            self.skipTest("customtkinter not available for GUI test")
+
+        app = UniversalTesterGUI()
+        try:
+            # 1. Verify existence of stat variables and toolbar controls
+            self.assertTrue(hasattr(app, "stat_duration_var"))
+            self.assertTrue(hasattr(app, "stat_ram_var"))
+            self.assertTrue(hasattr(app, "stat_tests_var"))
+            self.assertTrue(hasattr(app, "stat_grade_var"))
+            self.assertTrue(hasattr(app, "autoscroll_var"))
+            self.assertTrue(app.autoscroll_var.get())
+
+            # 2. Test stat cards update on simulated RunResult
+            mock_res = RunResult(
+                run_id="run-test-ui",
+                status="passed",
+                metrics={"passed": 42, "failed": 0, "grade": "Grade A+"},
+                duration_s=1.234
+            )
+            app._update_stat_cards(mock_res)
+            self.assertEqual(app.stat_duration_var.get(), "1.23s")
+            self.assertEqual(app.stat_grade_var.get(), "Grade A+")
+            self.assertIn("42/42", app.stat_tests_var.get())
+
+            # 3. Test clear logs
+            app._append_log("Sample log content")
+            self.assertIn("Sample log content", app.log_text.get("1.0", "end"))
+            app._clear_log()
+            self.assertEqual(app.log_text.get("1.0", "end").strip(), "")
+
+            # 4. Test execution locking and unlocking
+            app._set_controls_enabled(False)
+            self.assertEqual(app.proj_entry.cget("state"), "disabled")
+            app._set_controls_enabled(True)
+            self.assertEqual(app.proj_entry.cget("state"), "normal")
+        finally:
+            app.destroy()
+
+    def test_gui_assets_and_logo_graceful_loading(self):
+        import os
+        from gui.main import _find_asset, UniversalTesterGUI, HAS_CTK
+        if not HAS_CTK:
+            self.skipTest("customtkinter not available for GUI test")
+
+        # 1. Non-existent asset returns None
+        self.assertIsNone(_find_asset("non_existent_asset_xyz.png"))
+
+        # 2. Existing asset discovery
+        readme_path = _find_asset("assets/README.md")
+        self.assertIsNotNone(readme_path)
+        self.assertTrue(os.path.exists(readme_path))
+
+        # 3. GUI initializes and handles missing/present icon without raising
+        app = UniversalTesterGUI()
+        try:
+            self.assertIsNotNone(app)
+            self.assertTrue(hasattr(app, "_setup_window_icon"))
         finally:
             app.destroy()
 

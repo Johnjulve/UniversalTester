@@ -1,6 +1,6 @@
 # 🏗️ UniversalTester (`testx`) Architecture & Extension Guide
 
-> **Version 1.1.0** • Master 5-Pillar Architecture
+> **Version 2.0.1** • Master 5-Pillar Architecture
 
 **UniversalTester** coordinates software quality across five complementary disciplines through a **Hybrid Two-Pillar Engine**:
 1. **Pillar 1: Native Test & Benchmark Engine**: Self-contained, framework-agnostic algorithms, mathematical stress models, system health diagnostics, concurrency traffic simulations, and static AST security auditing operating purely on the Python Standard Library.
