@@ -216,7 +216,7 @@ class TestPhase8DesktopGUI(unittest.TestCase):
             app._set_active_capability("components")
             self.assertEqual(app.active_capability, "components")
             self.assertEqual(app.cap_buttons["components"].cget("fg_color"), ("#0284c7", "#0369a1"))
-            self.assertEqual(app.cap_buttons["full_suite"].cget("fg_color"), ("gray75", "gray25"))
+            self.assertEqual(app.cap_buttons["full_suite"].cget("fg_color"), ("#f1f5f9", "#1e293b"))
         finally:
             app.destroy()
 
@@ -390,6 +390,49 @@ class TestPhase8DesktopGUI(unittest.TestCase):
             app.concurrency_var.set("3500")
             app._select_capability("simulation")
             self.assertIn("3500 Users", app.active_test_var.get())
+        finally:
+            app.destroy()
+
+    def test_gui_stat_cards_and_toolbar(self):
+        try:
+            import customtkinter as ctk
+            from gui.main import UniversalTesterGUI
+        except ImportError:
+            self.skipTest("customtkinter not available for GUI test")
+
+        app = UniversalTesterGUI()
+        try:
+            # 1. Verify existence of stat variables and toolbar controls
+            self.assertTrue(hasattr(app, "stat_duration_var"))
+            self.assertTrue(hasattr(app, "stat_ram_var"))
+            self.assertTrue(hasattr(app, "stat_tests_var"))
+            self.assertTrue(hasattr(app, "stat_grade_var"))
+            self.assertTrue(hasattr(app, "autoscroll_var"))
+            self.assertTrue(app.autoscroll_var.get())
+
+            # 2. Test stat cards update on simulated RunResult
+            mock_res = RunResult(
+                run_id="run-test-ui",
+                status="passed",
+                metrics={"passed": 42, "failed": 0, "grade": "Grade A+"},
+                duration_s=1.234
+            )
+            app._update_stat_cards(mock_res)
+            self.assertEqual(app.stat_duration_var.get(), "1.23s")
+            self.assertEqual(app.stat_grade_var.get(), "Grade A+")
+            self.assertIn("42/42", app.stat_tests_var.get())
+
+            # 3. Test clear logs
+            app._append_log("Sample log content")
+            self.assertIn("Sample log content", app.log_text.get("1.0", "end"))
+            app._clear_log()
+            self.assertEqual(app.log_text.get("1.0", "end").strip(), "")
+
+            # 4. Test execution locking and unlocking
+            app._set_controls_enabled(False)
+            self.assertEqual(app.proj_entry.cget("state"), "disabled")
+            app._set_controls_enabled(True)
+            self.assertEqual(app.proj_entry.cget("state"), "normal")
         finally:
             app.destroy()
 
